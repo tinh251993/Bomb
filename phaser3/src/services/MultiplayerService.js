@@ -6,6 +6,7 @@ class MultiplayerService {
     this.roomListeners = new Set();
     this.startListeners = new Set();
     this.remoteStateListeners = new Set();
+    this.reviveListeners = new Set();
   }
 
   isAvailable() {
@@ -24,6 +25,9 @@ class MultiplayerService {
     });
     this.socket.on('game:player-state', (payload) => {
       this.remoteStateListeners.forEach((listener) => listener(payload));
+    });
+    this.socket.on('game:revive-request', (payload) => {
+      this.reviveListeners.forEach((listener) => listener(payload));
     });
 
     return new Promise((resolve, reject) => {
@@ -69,6 +73,11 @@ class MultiplayerService {
     this.socket.emit('game:player-state', state);
   }
 
+  requestRevive(targetPlayerId) {
+    if (!this.socket?.connected || !this.room?.started || !targetPlayerId) return;
+    this.socket.emit('game:revive-player', { targetPlayerId });
+  }
+
   onRoomUpdate(listener) {
     this.roomListeners.add(listener);
     return () => this.roomListeners.delete(listener);
@@ -82,6 +91,11 @@ class MultiplayerService {
   onRemotePlayerState(listener) {
     this.remoteStateListeners.add(listener);
     return () => this.remoteStateListeners.delete(listener);
+  }
+
+  onReviveRequest(listener) {
+    this.reviveListeners.add(listener);
+    return () => this.reviveListeners.delete(listener);
   }
 
   getLocalPlayer() {

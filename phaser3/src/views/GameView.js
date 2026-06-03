@@ -7,6 +7,8 @@ export class GameView {
     this.scene = scene;
     this.model = model;
     this.remoteSprites = new Map();
+    this.remoteStates = new Map();
+    this.localStatusText = null;
   }
 
   preload() {
@@ -100,12 +102,20 @@ export class GameView {
       padding: { x: 18, y: 12 },
       align: 'center'
     }).setOrigin(0.5).setDepth(20000).setVisible(false);
+    this.localStatusText = this.scene.add.text(0, 0, '', {
+      fontFamily: 'Arial',
+      fontSize: '14px',
+      color: '#fef3c7',
+      backgroundColor: '#111827',
+      padding: { x: 6, y: 3 }
+    }).setOrigin(0.5).setDepth(20001).setVisible(false);
     this.updateHud();
   }
 
   updateHud() {
     const player = this.model.player;
-    this.scoreText.setText(`Score ${this.model.score}   Bombs ${player.maxBombs}   Range ${player.bombRange}   Type ${player.currentBombType.name}`);
+    const status = player.status === 'alive' ? '' : `   ${player.status.toUpperCase()}`;
+    this.scoreText.setText(`Score ${this.model.score}   Bombs ${player.maxBombs}   Range ${player.bombRange}   Type ${player.currentBombType.name}${status}`);
   }
 
   setPlayerDirection(direction) {
@@ -114,6 +124,31 @@ export class GameView {
 
   updatePlayerDepth() {
     this.updateSpriteDepth(this.model.player.sprite);
+  }
+
+  updateLocalPlayerStatus(remainingMs = 0) {
+    const player = this.model.player;
+    if (!player.sprite) return;
+
+    player.sprite.clearTint();
+    player.sprite.setAlpha(1);
+    this.localStatusText?.setVisible(false);
+
+    if (player.status === 'downed') {
+      player.sprite.setTint(0x93c5fd);
+      player.sprite.setAlpha(0.72);
+      this.localStatusText
+        ?.setText(`HELP ${Math.ceil(remainingMs / 1000)}`)
+        .setPosition(player.sprite.x, player.sprite.y - 34)
+        .setVisible(true);
+    }
+
+    if (player.status === 'dead') {
+      player.sprite.setTint(0x475569);
+      player.sprite.setAlpha(0.45);
+    }
+
+    this.updateHud();
   }
 
   moveEnemy(enemy) {
@@ -179,6 +214,7 @@ export class GameView {
   updateRemotePlayer(playerId, state) {
     if (!state || playerId === state.localPlayerId) return;
 
+    this.remoteStates.set(playerId, state);
     let sprite = this.remoteSprites.get(playerId);
     const character = Characters.find((item) => item.id === state.characterId) || Characters[0];
     const textureKey = `${character.id}-${state.direction || 'down'}`;
@@ -193,7 +229,25 @@ export class GameView {
     sprite.setTexture(textureKey);
     sprite.x = state.x;
     sprite.y = state.y;
+    sprite.clearTint();
+    sprite.setAlpha(0.82);
+    sprite.setVisible(state.status !== 'dead');
+    if (state.status === 'downed') {
+      sprite.setTint(0x93c5fd);
+      sprite.setAlpha(0.56);
+    }
     this.updateSpriteDepth(sprite);
+  }
+
+  findDownedRemoteTouching(sprite) {
+    for (const [playerId, remoteSprite] of this.remoteSprites.entries()) {
+      const state = this.remoteStates.get(playerId);
+      if (state?.status !== 'downed' || !remoteSprite.visible) continue;
+      if (Phaser.Math.Distance.Between(sprite.x, sprite.y, remoteSprite.x, remoteSprite.y) < 30) {
+        return playerId;
+      }
+    }
+    return null;
   }
 
   showEndMessage(won) {

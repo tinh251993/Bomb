@@ -84,6 +84,14 @@ io.on('connection', (socket) => {
     });
   });
 
+  socket.on('game:revive-player', ({ targetPlayerId }) => {
+    const room = getSocketRoom(socket);
+    if (!room || !room.started || !room.players.has(targetPlayerId)) return;
+    io.to(targetPlayerId).emit('game:revive-request', {
+      fromPlayerId: socket.id
+    });
+  });
+
   socket.on('disconnect', () => {
     const room = getSocketRoom(socket);
     if (!room) return;

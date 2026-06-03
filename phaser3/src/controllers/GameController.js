@@ -13,6 +13,9 @@ export class GameController {
     this.multiplayer = { enabled: false, room: null, playerId: null };
     this.lastStateSentAt = 0;
     this.unsubscribeRemoteState = null;
+    this.unsubscribeReviveRequest = null;
+    this.remoteStatuses = new Map();
+    this.lastReviveRequestAt = 0;
   }
 
   configureMultiplayer(config) {
@@ -26,7 +29,11 @@ export class GameController {
 
     this.unsubscribeRemoteState = multiplayer.onRemotePlayerState(({ playerId, state }) => {
       if (playerId === this.multiplayer.playerId) return;
+      this.remoteStatuses.set(playerId, state?.status || 'alive');
       this.view.updateRemotePlayer(playerId, state);
+    });
+    this.unsubscribeReviveRequest = multiplayer.onReviveRequest(() => {
+      this.reviveLocalPlayer();
     });
   }
 
@@ -80,16 +87,20 @@ export class GameController {
   update(time, delta) {
     if (this.model.gameOver) return;
 
+    this.updateDownedState(time);
     this.handlePlayerMove(delta / 1000);
     this.handleItemPickup();
     this.handleEnemyMove(time);
     this.checkEnemyCollision();
+    this.checkRemoteRevive(time);
     this.broadcastPlayerState(time);
   }
 
   handlePlayerMove(dt) {
     const input = this.getMoveInput();
     const player = this.model.player;
+    if (!player.isAliveState()) return;
+
     player.setDirection(input.direction);
     this.view.setPlayerDirection(player.direction);
 
@@ -245,8 +256,7 @@ export class GameController {
 
   applyExplosionDamage(cells) {
     if (this.model.isPlayerIn(cells)) {
-      this.endGame(false);
-      return;
+      this.downLocalPlayer();
     }
 
     this.model.killEnemiesIn(cells);
@@ -255,6 +265,8 @@ export class GameController {
 
   handleItemPickup() {
     const player = this.model.player;
+    if (!player.isAliveState()) return;
+
     const item = this.model.collectItemAt(player.gridX, player.gridY);
     if (!item) return;
 
@@ -264,10 +276,19 @@ export class GameController {
 
   checkEnemyCollision() {
     const player = this.model.player;
+    if (player.isDead()) return;
+
     const hit = this.model.enemies.some((enemy) => {
       return enemy.isAlive() && Phaser.Math.Distance.Between(player.sprite.x, player.sprite.y, enemy.sprite.x, enemy.sprite.y) < 26;
     });
-    if (hit) this.endGame(false);
+    if (!hit) return;
+
+    if (player.isDowned()) {
+      this.killLocalPlayer();
+      return;
+    }
+
+    this.killLocalPlayer();
   }
 
   endGame(won) {
@@ -287,7 +308,77 @@ export class GameController {
       gridX: player.gridX,
       gridY: player.gridY,
       direction: player.direction,
-      characterId: player.character.id
+      characterId: player.character.id,
+      status: player.status,
+      downedRemainingMs: player.isDowned() ? Math.max(0, player.downedUntil - this.scene.time.now) : 0
+    });
+  }
+
+  downLocalPlayer() {
+    const player = this.model.player;
+    if (!player.isAliveState()) return;
+
+    player.downUntil(this.scene.time.now + 15000);
+    this.view.updateLocalPlayerStatus(15000);
+    this.broadcastPlayerState(this.scene.time.now + 1000);
+  }
+
+  reviveLocalPlayer() {
+    if (!this.model.player.revive()) return;
+
+    this.view.updateLocalPlayerStatus();
+    this.broadcastPlayerState(this.scene.time.now + 1000);
+  }
+
+  killLocalPlayer() {
+    const player = this.model.player;
+    if (player.isDead()) return;
+
+    player.die();
+    this.view.updateLocalPlayerStatus();
+    this.broadcastPlayerState(this.scene.time.now + 1000);
+
+    if (this.areAllPlayersDead()) {
+      this.endGame(false);
+    }
+  }
+
+  updateDownedState(time) {
+    const player = this.model.player;
+    if (!player.isDowned()) {
+      this.view.updateLocalPlayerStatus();
+      return;
+    }
+
+    const remaining = Math.max(0, player.downedUntil - time);
+    this.view.updateLocalPlayerStatus(remaining);
+    if (remaining <= 0) {
+      this.killLocalPlayer();
+    }
+  }
+
+  checkRemoteRevive(time) {
+    if (!this.multiplayer.enabled || !this.model.player.isAliveState()) return;
+    if (time - this.lastReviveRequestAt < 600) return;
+
+    const targetPlayerId = this.view.findDownedRemoteTouching(this.model.player.sprite);
+    if (!targetPlayerId) return;
+
+    this.lastReviveRequestAt = time;
+    multiplayer.requestRevive(targetPlayerId);
+  }
+
+  areAllPlayersDead() {
+    if (!this.multiplayer.enabled || !this.multiplayer.room) {
+      return this.model.player.isDead();
+    }
+
+    const players = this.multiplayer.room.players || [];
+    if (players.length <= 1) return this.model.player.isDead();
+
+    return players.every((player) => {
+      if (player.id === this.multiplayer.playerId) return this.model.player.isDead();
+      return this.remoteStatuses.get(player.id) === 'dead';
     });
   }
 }

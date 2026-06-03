@@ -43,7 +43,7 @@ export class GameModel {
   }
 
   canPlaceBomb() {
-    return !this.gameOver && this.bombs.size < this.player.maxBombs;
+    return !this.gameOver && this.player.isAliveState() && this.bombs.size < this.player.maxBombs;
   }
 
   placeBomb(x, y) {
@@ -162,6 +162,7 @@ export class GameModel {
   }
 
   isPlayerIn(cells) {
+    if (this.player.isDead()) return false;
     return cells.some((cell) => cell.x === this.player.gridX && cell.y === this.player.gridY);
   }
 

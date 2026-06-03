@@ -8,6 +8,8 @@ export class Player extends Character {
     this.maxBombs = 1;
     this.bombRange = 2;
     this.currentBombType = bombType;
+    this.status = 'alive';
+    this.downedUntil = 0;
   }
 
   addBombCapacity() {
@@ -24,5 +26,35 @@ export class Player extends Character {
 
   setBombType(type) {
     this.currentBombType = type;
+  }
+
+  isAliveState() {
+    return this.status === 'alive';
+  }
+
+  isDowned() {
+    return this.status === 'downed';
+  }
+
+  isDead() {
+    return this.status === 'dead';
+  }
+
+  downUntil(time) {
+    if (this.status === 'dead') return;
+    this.status = 'downed';
+    this.downedUntil = time;
+  }
+
+  revive() {
+    if (this.status !== 'downed') return false;
+    this.status = 'alive';
+    this.downedUntil = 0;
+    return true;
+  }
+
+  die() {
+    this.status = 'dead';
+    this.downedUntil = 0;
   }
 }
