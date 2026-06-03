@@ -28,6 +28,20 @@ const ENEMY_SPAWN_HINTS = [
   { x: 11, y: 3 },
   { x: 7, y: 5 }
 ];
+const LEVEL_THREE_ENEMY_SPAWN_HINTS = [
+  { x: 13, y: 1 },
+  { x: 10, y: 1 },
+  { x: 7, y: 3 },
+  { x: 12, y: 3 },
+  { x: 9, y: 5 },
+  { x: 5, y: 5 },
+  { x: 13, y: 7 },
+  { x: 10, y: 7 },
+  { x: 7, y: 9 },
+  { x: 12, y: 9 },
+  { x: 9, y: 11 },
+  { x: 5, y: 11 }
+];
 const BOSS_SPAWN = { x: 3, y: 9 };
 
 export class GameModel {
@@ -64,6 +78,7 @@ export class GameModel {
   spawnEnemies() {
     if (this.level === 3) {
       this.spawnBoss();
+      this.spawnLevelThreeEnemies();
       return;
     }
 
@@ -71,6 +86,23 @@ export class GameModel {
     const used = new Set();
 
     ENEMY_SPAWN_HINTS.slice(0, count).forEach((spot) => {
+      const pos = this.map.findNearestOpen(spot.x, spot.y);
+      const key = GridMath.key(pos.x, pos.y);
+      if (used.has(key)) return;
+
+      used.add(key);
+      this.enemies.push(new Enemy(pos.x, pos.y));
+    });
+  }
+
+  spawnLevelThreeEnemies() {
+    const count = Math.min(this.playerCount * 5, 12);
+    const used = new Set([
+      GridMath.key(this.player.gridX, this.player.gridY),
+      this.boss ? GridMath.key(this.boss.gridX, this.boss.gridY) : ''
+    ]);
+
+    LEVEL_THREE_ENEMY_SPAWN_HINTS.slice(0, count).forEach((spot) => {
       const pos = this.map.findNearestOpen(spot.x, spot.y);
       const key = GridMath.key(pos.x, pos.y);
       if (used.has(key)) return;
