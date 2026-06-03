@@ -28,10 +28,7 @@ export class GameView {
       });
     });
     load.image('enemy', '../res/quaivat 3_down.png');
-    load.image('boss-down', '../res/Boss/boss_down.png');
-    load.image('boss-up', '../res/Boss/boss_up.png');
-    load.image('boss-left', '../res/Boss/boss_left.png');
-    load.image('boss-right', '../res/Boss/boss_right.png');
+    load.image('boss-pirate', '../res/bigbos_pirate.png');
     load.image('boss-bomb', '../res/bomb.gif');
     load.image('item-bomb', '../res/items/item_bomb.gif');
     load.image('item-flame', '../res/items/item_bombsize.gif');
@@ -101,7 +98,7 @@ export class GameView {
     if (!boss) return;
 
     const pos = GridMath.toWorld(boss.gridX, boss.gridY);
-    const sprite = this.scene.add.sprite(pos.x, pos.y, 'boss-down').setDisplaySize(84, 84);
+    const sprite = this.scene.add.sprite(pos.x, pos.y, 'boss-pirate').setDisplaySize(92, 118);
     this.updateSpriteDepth(sprite);
     boss.attachSprite(sprite);
   }
@@ -173,7 +170,9 @@ export class GameView {
   }
 
   setBossDirection(direction) {
-    if (this.model.boss?.sprite) this.model.boss.sprite.setTexture(`boss-${direction}`);
+    if (!this.model.boss?.sprite) return;
+    if (direction === 'left') this.model.boss.sprite.setFlipX(true);
+    if (direction === 'right') this.model.boss.sprite.setFlipX(false);
   }
 
   updatePlayerDepth() {
