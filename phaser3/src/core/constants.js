@@ -63,6 +63,12 @@ export const BombTypes = Object.freeze([
   }
 ]);
 
+export const BossBombType = Object.freeze({
+  id: 'boss',
+  name: 'Boss',
+  explosionStyle: 'cross'
+});
+
 export const Characters = Object.freeze([
   {
     id: 'bebong',

@@ -1,13 +1,14 @@
-import { BombTypes, Characters, DIRS, TileType } from '../core/constants.js';
+import { BombTypes, BossBombType, Characters, DIRS, TileType } from '../core/constants.js';
 import { GridMath } from '../core/GridMath.js';
 import { Bomb } from '../entities/Bomb.js';
+import { Boss } from '../entities/Boss.js';
 import { Enemy } from '../entities/Enemy.js';
 import { Item } from '../entities/Item.js';
 import { Player } from '../entities/Player.js';
 import { TileMap } from './TileMap.js';
 
 const Phaser = window.Phaser;
-const MAX_LEVEL = 2;
+const MAX_LEVEL = 3;
 const SHARED_PLAYER_SPAWN = { x: 1, y: 1 };
 const ENEMY_SPAWN_HINTS = [
   { x: 13, y: 11 },
@@ -27,6 +28,7 @@ const ENEMY_SPAWN_HINTS = [
   { x: 11, y: 3 },
   { x: 7, y: 5 }
 ];
+const BOSS_SPAWN = { x: 3, y: 9 };
 
 export class GameModel {
   constructor(options = {}) {
@@ -40,6 +42,7 @@ export class GameModel {
     this.player = new Player(spawn.x, spawn.y, this.selectedCharacter, this.selectedBombType);
     this.applyPlayerStats(options.playerStats);
     this.enemies = [];
+    this.boss = null;
     this.bombs = new Map();
     this.items = new Map();
     this.score = options.score || 0;
@@ -58,6 +61,11 @@ export class GameModel {
   }
 
   spawnEnemies() {
+    if (this.level === 3) {
+      this.spawnBoss();
+      return;
+    }
+
     const count = this.playerCount * 4;
     const used = new Set();
 
@@ -71,8 +79,17 @@ export class GameModel {
     });
   }
 
+  spawnBoss() {
+    const pos = this.map.findNearestOpen(BOSS_SPAWN.x, BOSS_SPAWN.y);
+    this.boss = new Boss(pos.x, pos.y);
+  }
+
   canPlaceBomb() {
-    return !this.gameOver && this.player.isAliveState() && this.bombs.size < this.player.maxBombs;
+    return !this.gameOver && this.player.isAliveState() && this.countPlayerBombs() < this.player.maxBombs;
+  }
+
+  countPlayerBombs() {
+    return Array.from(this.bombs.values()).filter((bomb) => bomb.owner === 'player').length;
   }
 
   placeBomb(x, y) {
@@ -81,9 +98,38 @@ export class GameModel {
     const key = GridMath.key(x, y);
     if (this.bombs.has(key)) return null;
 
-    const bomb = new Bomb(x, y, this.player.bombRange, this.player.currentBombType);
+    const bomb = new Bomb(x, y, this.player.bombRange, this.player.currentBombType, 'player');
     this.bombs.set(key, bomb);
     return bomb;
+  }
+
+  placeBossBomb(x, y) {
+    const key = GridMath.key(x, y);
+    if (!this.boss || this.bombs.has(key) || !this.map.isEmpty(x, y)) return null;
+
+    const bomb = new Bomb(x, y, this.boss.getBombRange(), BossBombType, 'boss');
+    this.bombs.set(key, bomb);
+    return bomb;
+  }
+
+  getRandomBossBombSpots(count) {
+    const spots = [];
+    const used = new Set(this.bombs.keys());
+    const candidates = [];
+
+    for (let y = 1; y < this.map.grid.length - 1; y++) {
+      for (let x = 1; x < this.map.grid[y].length - 1; x++) {
+        const key = GridMath.key(x, y);
+        if (this.map.isEmpty(x, y) && !used.has(key)) candidates.push({ x, y, key });
+      }
+    }
+
+    Phaser.Utils.Array.Shuffle(candidates).slice(0, count).forEach((spot) => {
+      used.add(spot.key);
+      spots.push({ x: spot.x, y: spot.y });
+    });
+
+    return spots;
   }
 
   removeBomb(key) {
@@ -188,6 +234,31 @@ export class GameModel {
 
     this.enemies = this.enemies.filter((enemy) => enemy.isAlive());
     return killed;
+  }
+
+  damageBossIn(cells) {
+    if (!this.boss || !this.boss.isAlive()) return false;
+
+    const hit = cells.some((cell) => {
+      return Math.abs(cell.x - this.boss.gridX) <= 1 && Math.abs(cell.y - this.boss.gridY) <= 1;
+    });
+    if (!hit) return false;
+
+    const killed = this.boss.takeDamage(10);
+    if (killed) {
+      this.score += 1000;
+    } else {
+      this.score += 80;
+    }
+    return killed;
+  }
+
+  isBossAlive() {
+    return Boolean(this.boss?.isAlive());
+  }
+
+  isLevelCleared() {
+    return this.enemies.length === 0 && !this.isBossAlive();
   }
 
   isPlayerIn(cells) {

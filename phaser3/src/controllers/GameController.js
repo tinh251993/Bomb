@@ -10,6 +10,8 @@ export class GameController {
     this.model = model;
     this.view = view;
     this.enemyStepTime = 0;
+    this.bossStepTime = 0;
+    this.nextBossThrowAt = 0;
     this.multiplayer = { enabled: false, room: null, playerId: null };
     this.lastStateSentAt = 0;
     this.unsubscribeRemoteState = null;
@@ -91,7 +93,10 @@ export class GameController {
     this.handlePlayerMove(delta / 1000);
     this.handleItemPickup();
     this.handleEnemyMove(time);
+    this.handleBossMove(time);
+    this.handleBossBombThrow(time);
     this.checkEnemyCollision();
+    this.checkBossCollision();
     this.checkRemoteRevive(time);
     this.broadcastPlayerState(time);
   }
@@ -203,6 +208,51 @@ export class GameController {
     });
   }
 
+  handleBossMove(time) {
+    const boss = this.model.boss;
+    if (!boss?.isAlive() || time < this.bossStepTime) return;
+    this.bossStepTime = time + Math.round(260 / boss.speed);
+
+    const choices = DIRS.filter((dir) => this.model.isWalkable(boss.gridX + dir.x, boss.gridY + dir.y));
+    if (choices.length === 0) return;
+
+    if (!this.model.isWalkable(boss.gridX + boss.dir.x, boss.gridY + boss.dir.y) || Phaser.Math.Between(0, 100) < 34) {
+      boss.chooseDirection(choices);
+    }
+
+    boss.setDirection(this.directionFromDelta(boss.dir));
+    this.view.setBossDirection(boss.direction);
+    boss.setGridPosition(boss.gridX + boss.dir.x, boss.gridY + boss.dir.y);
+    this.view.moveBoss(boss);
+  }
+
+  directionFromDelta(delta) {
+    if (delta.x < 0) return Direction.LEFT;
+    if (delta.x > 0) return Direction.RIGHT;
+    if (delta.y < 0) return Direction.UP;
+    return Direction.DOWN;
+  }
+
+  handleBossBombThrow(time) {
+    if (!this.model.boss?.isAlive()) return;
+
+    if (this.nextBossThrowAt === 0) {
+      this.nextBossThrowAt = time + 6000;
+      return;
+    }
+    if (time < this.nextBossThrowAt) return;
+
+    this.nextBossThrowAt = time + 6000;
+    this.model.getRandomBossBombSpots(8).forEach((spot) => {
+      const bomb = this.model.placeBossBomb(spot.x, spot.y);
+      if (!bomb) return;
+
+      this.view.createBombSprite(bomb);
+      const key = GridMath.key(bomb.gridX, bomb.gridY);
+      bomb.setTimer(this.scene.time.delayedCall(1650, () => this.explodeBomb(key)));
+    });
+  }
+
   placeBomb() {
     const tile = GridMath.toGrid(this.model.player.sprite.x, this.model.player.sprite.y);
     const bomb = this.model.placeBomb(tile.x, tile.y);
@@ -236,7 +286,7 @@ export class GameController {
 
     this.scene.sound.play('bomb-sfx', { volume: 0.32 });
     this.view.drawExplosion(cells, bomb.type);
-    this.applyExplosionDamage(cells);
+    this.applyExplosionDamage(cells, bomb.owner);
     this.triggerBombsIn(cells);
     this.view.updateHud();
   }
@@ -254,13 +304,16 @@ export class GameController {
     }));
   }
 
-  applyExplosionDamage(cells) {
+  applyExplosionDamage(cells, owner = 'player') {
     if (this.model.isPlayerIn(cells)) {
       this.downLocalPlayer();
     }
 
     this.model.killEnemiesIn(cells);
-    if (this.model.enemies.length === 0) this.clearLevel();
+    const bossWasKilled = owner !== 'boss' && this.model.damageBossIn(cells);
+    if (bossWasKilled) this.view.clearBossHud();
+    this.view.updateBossHud();
+    if (this.model.isLevelCleared()) this.clearLevel();
   }
 
   clearLevel() {
@@ -313,6 +366,17 @@ export class GameController {
       this.killLocalPlayer();
       return;
     }
+
+    this.killLocalPlayer();
+  }
+
+  checkBossCollision() {
+    const player = this.model.player;
+    const boss = this.model.boss;
+    if (player.isDead() || !boss?.isAlive()) return;
+
+    const hit = Phaser.Math.Distance.Between(player.sprite.x, player.sprite.y, boss.sprite.x, boss.sprite.y) < 46;
+    if (!hit) return;
 
     this.killLocalPlayer();
   }

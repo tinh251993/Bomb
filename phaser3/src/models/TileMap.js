@@ -18,6 +18,22 @@ const LEVEL_TWO_LAYOUT = [
   '###############'
 ];
 
+const LEVEL_THREE_LAYOUT = [
+  '###############',
+  '#.............#',
+  '#..#.#...#.#..#',
+  '#.............#',
+  '#.#..#.#..#.#.#',
+  '#.............#',
+  '#..#.#...#.#..#',
+  '#.............#',
+  '#.#..#.#..#.#.#',
+  '#.............#',
+  '#..#.#...#.#..#',
+  '#.............#',
+  '###############'
+];
+
 export class TileMap {
   constructor(level = 1) {
     this.level = level;
@@ -26,6 +42,7 @@ export class TileMap {
 
   buildGrid() {
     if (this.level === 2) return this.buildFromLayout(LEVEL_TWO_LAYOUT);
+    if (this.level === 3) return this.buildFromLayout(LEVEL_THREE_LAYOUT);
 
     const safe = new Set([
       '1,1', '2,1', '1,2',

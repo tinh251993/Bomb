@@ -9,6 +9,9 @@ export class GameView {
     this.remoteSprites = new Map();
     this.remoteStates = new Map();
     this.localStatusText = null;
+    this.bossHealthBg = null;
+    this.bossHealthFill = null;
+    this.bossHealthText = null;
   }
 
   preload() {
@@ -24,6 +27,11 @@ export class GameView {
       });
     });
     load.image('enemy', '../res/quaivat 3_down.png');
+    load.image('boss-down', '../res/Boss/boss_down.png');
+    load.image('boss-up', '../res/Boss/boss_up.png');
+    load.image('boss-left', '../res/Boss/boss_left.png');
+    load.image('boss-right', '../res/Boss/boss_right.png');
+    load.image('boss-bomb', '../res/bomb.gif');
     load.image('item-bomb', '../res/items/item_bomb.gif');
     load.image('item-flame', '../res/items/item_bombsize.gif');
     load.image('item-speed', '../res/items/item_shoe.gif');
@@ -43,6 +51,7 @@ export class GameView {
     this.drawMap();
     this.drawPlayer();
     this.drawEnemies();
+    this.drawBoss();
     this.drawHud();
   }
 
@@ -50,11 +59,15 @@ export class GameView {
     for (let y = 0; y < ROWS; y++) {
       for (let x = 0; x < COLS; x++) {
         const pos = GridMath.toWorld(x, y);
-        this.floorLayer.add(this.scene.add.image(pos.x, pos.y, 'floor').setDisplaySize(TILE, TILE));
+        const floor = this.scene.add.image(pos.x, pos.y, 'floor').setDisplaySize(TILE, TILE);
+        if (this.model.level === 3) floor.setTint(0xb8f4ff);
+        this.floorLayer.add(floor);
 
         const tile = this.model.map.get(x, y);
         if (tile === TileType.WALL) {
-          this.wallLayer.add(this.scene.add.image(pos.x, pos.y, 'wall').setDisplaySize(TILE, TILE).setDepth(this.depthForY(pos.y)));
+          const wall = this.scene.add.image(pos.x, pos.y, 'wall').setDisplaySize(TILE, TILE).setDepth(this.depthForY(pos.y));
+          if (this.model.level === 3) wall.setTint(0xdffbff);
+          this.wallLayer.add(wall);
         }
         if (tile === TileType.CRATE) {
           const crate = this.scene.add.image(pos.x, pos.y, 'crate').setDisplaySize(TILE, TILE).setDepth(this.depthForY(pos.y));
@@ -80,6 +93,16 @@ export class GameView {
       this.updateSpriteDepth(sprite);
       enemy.attachSprite(sprite);
     });
+  }
+
+  drawBoss() {
+    const boss = this.model.boss;
+    if (!boss) return;
+
+    const pos = GridMath.toWorld(boss.gridX, boss.gridY);
+    const sprite = this.scene.add.sprite(pos.x, pos.y, 'boss-down').setDisplaySize(84, 84);
+    this.updateSpriteDepth(sprite);
+    boss.attachSprite(sprite);
   }
 
   drawHud() {
@@ -109,7 +132,25 @@ export class GameView {
       backgroundColor: '#111827',
       padding: { x: 6, y: 3 }
     }).setOrigin(0.5).setDepth(20001).setVisible(false);
+    this.drawBossHud();
     this.updateHud();
+  }
+
+  drawBossHud() {
+    if (!this.model.boss) return;
+
+    this.bossHealthBg = this.scene.add.rectangle(WIDTH / 2, HUD + 16, 260, 12, 0x111827, 0.86)
+      .setDepth(10001);
+    this.bossHealthFill = this.scene.add.rectangle(WIDTH / 2 - 130, HUD + 16, 260, 12, 0xef4444, 1)
+      .setOrigin(0, 0.5)
+      .setDepth(10002);
+    this.bossHealthText = this.scene.add.text(WIDTH / 2, HUD + 29, 'BOSS', {
+      fontFamily: 'Arial',
+      fontSize: '13px',
+      color: '#f8fafc',
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setDepth(10002);
+    this.updateBossHud();
   }
 
   updateHud() {
@@ -120,6 +161,10 @@ export class GameView {
 
   setPlayerDirection(direction) {
     this.model.player.sprite.setTexture(this.playerTexture(direction));
+  }
+
+  setBossDirection(direction) {
+    if (this.model.boss?.sprite) this.model.boss.sprite.setTexture(`boss-${direction}`);
   }
 
   updatePlayerDepth() {
@@ -164,9 +209,23 @@ export class GameView {
     });
   }
 
+  moveBoss(boss) {
+    const pos = GridMath.toWorld(boss.gridX, boss.gridY);
+    this.scene.tweens.add({
+      targets: boss.sprite,
+      x: pos.x,
+      y: pos.y,
+      duration: 185,
+      ease: 'Linear',
+      onUpdate: () => this.updateSpriteDepth(boss.sprite),
+      onComplete: () => this.updateSpriteDepth(boss.sprite)
+    });
+  }
+
   createBombSprite(bomb) {
     const pos = GridMath.toWorld(bomb.gridX, bomb.gridY);
-    const sprite = this.scene.add.image(pos.x, pos.y, `bomb-${bomb.type.id}`)
+    const texture = bomb.type.id === 'boss' ? 'boss-bomb' : `bomb-${bomb.type.id}`;
+    const sprite = this.scene.add.image(pos.x, pos.y, texture)
       .setDisplaySize(42, 42)
       .setDepth(this.depthForY(pos.y) - 3);
     const baseScaleX = sprite.scaleX;
@@ -185,7 +244,8 @@ export class GameView {
   drawExplosion(cells, type) {
     cells.forEach((cell) => {
       const pos = GridMath.toWorld(cell.x, cell.y);
-      const flame = this.scene.add.image(pos.x, pos.y, `explosion-${type.id}`)
+      const texture = type.id === 'boss' ? 'explosion-basic' : `explosion-${type.id}`;
+      const flame = this.scene.add.image(pos.x, pos.y, texture)
         .setDisplaySize(type.explosionStyle === 'round' ? TILE * 1.35 : TILE * 1.2, TILE * 1.2)
         .setDepth(9000);
       this.effectLayer.add(flame);
@@ -261,6 +321,24 @@ export class GameView {
     this.messageText
       .setText(`LEVEL CLEAR\nNext: Level ${nextLevel}`)
       .setVisible(true);
+  }
+
+  updateBossHud() {
+    const boss = this.model.boss;
+    if (!boss || !this.bossHealthFill) return;
+
+    const ratio = Math.max(0, boss.health / boss.maxHealth);
+    this.bossHealthFill.setDisplaySize(260 * ratio, 12);
+    this.bossHealthText?.setText(`BOSS HP ${boss.health}/${boss.maxHealth}   RANGE ${boss.getBombRange()}`);
+  }
+
+  clearBossHud() {
+    this.bossHealthBg?.destroy();
+    this.bossHealthFill?.destroy();
+    this.bossHealthText?.destroy();
+    this.bossHealthBg = null;
+    this.bossHealthFill = null;
+    this.bossHealthText = null;
   }
 
   updateSpriteDepth(sprite) {
