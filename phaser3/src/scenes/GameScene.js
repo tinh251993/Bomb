@@ -23,7 +23,8 @@ export class GameScene extends Phaser.Scene {
     this.model = new GameModel({
       character: data.character,
       bombType: data.bombType,
-      playerIndex
+      playerIndex,
+      playerCount: data.room?.players?.length || 1
     });
     this.view = new GameView(this, this.model);
     this.view.create();
