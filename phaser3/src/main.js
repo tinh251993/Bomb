@@ -10,11 +10,16 @@ const config = {
   parent: 'game',
   width: WIDTH,
   height: HEIGHT,
+  resolution: Math.min(window.devicePixelRatio || 1, 2),
+  antialias: true,
+  antialiasGL: true,
   pixelArt: false,
   roundPixels: true,
+  transparent: false,
   scale: {
     mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+    autoRound: true
   },
   dom: {
     createContainer: true
