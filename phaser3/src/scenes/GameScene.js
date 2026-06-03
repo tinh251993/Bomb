@@ -18,13 +18,17 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(data = {}) {
+    this.launchData = data;
     this.input.keyboard.enabled = true;
     const playerIndex = data.room?.players?.findIndex((player) => player.id === data.playerId) ?? 0;
     this.model = new GameModel({
       character: data.character,
       bombType: data.bombType,
       playerIndex,
-      playerCount: data.room?.players?.length || 1
+      playerCount: data.room?.players?.length || 1,
+      level: data.level || 1,
+      score: data.score || 0,
+      playerStats: data.playerStats
     });
     this.view = new GameView(this, this.model);
     this.view.create();

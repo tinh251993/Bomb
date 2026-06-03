@@ -115,7 +115,7 @@ export class GameView {
   updateHud() {
     const player = this.model.player;
     const status = player.status === 'alive' ? '' : `   ${player.status.toUpperCase()}`;
-    this.scoreText.setText(`Score ${this.model.score}   Bombs ${player.maxBombs}   Range ${player.bombRange}   Type ${player.currentBombType.name}${status}`);
+    this.scoreText.setText(`Level ${this.model.level}   Score ${this.model.score}   Bombs ${player.maxBombs}   Range ${player.bombRange}   Type ${player.currentBombType.name}${status}`);
   }
 
   setPlayerDirection(direction) {
@@ -254,6 +254,12 @@ export class GameView {
     if (!won) this.model.player.sprite.setTexture(this.playerTexture('dead'));
     this.messageText
       .setText(`${won ? 'YOU WIN' : 'GAME OVER'}\nScore: ${this.model.score}\nPress R to restart`)
+      .setVisible(true);
+  }
+
+  showLevelCompleteMessage(nextLevel) {
+    this.messageText
+      .setText(`LEVEL CLEAR\nNext: Level ${nextLevel}`)
       .setVisible(true);
   }
 

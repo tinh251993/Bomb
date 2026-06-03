@@ -260,7 +260,33 @@ export class GameController {
     }
 
     this.model.killEnemiesIn(cells);
-    if (this.model.enemies.length === 0) this.endGame(true);
+    if (this.model.enemies.length === 0) this.clearLevel();
+  }
+
+  clearLevel() {
+    if (!this.model.hasNextLevel()) {
+      this.endGame(true);
+      return;
+    }
+
+    this.model.gameOver = true;
+    this.view.showLevelCompleteMessage(this.model.level + 1);
+    this.scene.time.delayedCall(1500, () => this.startNextLevel());
+  }
+
+  startNextLevel() {
+    const player = this.model.player;
+    this.scene.scene.restart({
+      ...this.scene.launchData,
+      level: this.model.level + 1,
+      score: this.model.score,
+      playerStats: {
+        maxBombs: player.maxBombs,
+        bombRange: player.bombRange,
+        speed: player.speed,
+        currentBombType: player.currentBombType
+      }
+    });
   }
 
   handleItemPickup() {

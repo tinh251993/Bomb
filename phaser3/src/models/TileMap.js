@@ -2,12 +2,31 @@ import { COLS, ROWS, TileType } from '../core/constants.js';
 
 const Phaser = window.Phaser;
 
+const LEVEL_TWO_LAYOUT = [
+  '###############',
+  '#..#...#...#..#',
+  '#.C#C.C#C.C#C.#',
+  '#.............#',
+  '#C.#.C.#.C.#.C#',
+  '#..#...#...#..#',
+  '#.C.C.C.C.C.C.#',
+  '#.............#',
+  '#C.#.C.#.C.#.C#',
+  '#..#...#...#..#',
+  '#.C#C.C#C.C#C.#',
+  '#.............#',
+  '###############'
+];
+
 export class TileMap {
-  constructor() {
+  constructor(level = 1) {
+    this.level = level;
     this.grid = this.buildGrid();
   }
 
   buildGrid() {
+    if (this.level === 2) return this.buildFromLayout(LEVEL_TWO_LAYOUT);
+
     const safe = new Set([
       '1,1', '2,1', '1,2',
       '13,11', '12,11', '13,10',
@@ -34,6 +53,16 @@ export class TileMap {
     }
 
     return grid;
+  }
+
+  buildFromLayout(layout) {
+    return layout.map((row) => {
+      return row.split('').map((cell) => {
+        if (cell === '#') return TileType.WALL;
+        if (cell === 'C') return TileType.CRATE;
+        return TileType.EMPTY;
+      });
+    });
   }
 
   get(x, y) {

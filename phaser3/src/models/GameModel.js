@@ -7,6 +7,7 @@ import { Player } from '../entities/Player.js';
 import { TileMap } from './TileMap.js';
 
 const Phaser = window.Phaser;
+const MAX_LEVEL = 2;
 const SHARED_PLAYER_SPAWN = { x: 1, y: 1 };
 const ENEMY_SPAWN_HINTS = [
   { x: 13, y: 11 },
@@ -33,16 +34,27 @@ export class GameModel {
     this.selectedBombType = options.bombType || BombTypes[0];
     this.playerIndex = options.playerIndex || 0;
     this.playerCount = Math.max(1, options.playerCount || 1);
+    this.level = Math.min(MAX_LEVEL, Math.max(1, options.level || 1));
     const spawn = SHARED_PLAYER_SPAWN;
-    this.map = new TileMap();
+    this.map = new TileMap(this.level);
     this.player = new Player(spawn.x, spawn.y, this.selectedCharacter, this.selectedBombType);
+    this.applyPlayerStats(options.playerStats);
     this.enemies = [];
     this.bombs = new Map();
     this.items = new Map();
-    this.score = 0;
+    this.score = options.score || 0;
     this.gameOver = false;
     this.won = false;
     this.spawnEnemies();
+  }
+
+  applyPlayerStats(stats) {
+    if (!stats) return;
+
+    this.player.maxBombs = Math.max(1, stats.maxBombs || this.player.maxBombs);
+    this.player.bombRange = Math.max(1, stats.bombRange || this.player.bombRange);
+    this.player.speed = Math.max(120, stats.speed || this.player.speed);
+    this.player.currentBombType = stats.currentBombType || this.player.currentBombType;
   }
 
   spawnEnemies() {
@@ -197,5 +209,9 @@ export class GameModel {
   endGame(won) {
     this.gameOver = true;
     this.won = won;
+  }
+
+  hasNextLevel() {
+    return this.level < MAX_LEVEL;
   }
 }
