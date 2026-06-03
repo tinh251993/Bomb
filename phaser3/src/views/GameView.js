@@ -19,7 +19,7 @@ export class GameView {
     const load = this.scene.load;
     load.image('floor', '../res/land.png');
     load.image('wall', '../res/boxcot.png');
-    load.image('crate', '../res/boxgo2.png');
+    load.image('crate', '../res/boxgo3.png');
     load.image('bomb-sheet', '../res/Bomb/bomb.png');
     Characters.forEach((character) => {
       load.image(`${character.id}-card`, character.card);
