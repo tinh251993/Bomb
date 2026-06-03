@@ -1,4 +1,4 @@
-import { HEIGHT, WIDTH } from '../core/constants.js';
+import { BombTypes, Characters, HEIGHT, WIDTH } from '../core/constants.js';
 import { multiplayer } from '../services/MultiplayerService.js';
 
 const Phaser = window.Phaser;
@@ -11,9 +11,12 @@ export class LobbyScene extends Phaser.Scene {
     this.statusText = null;
     this.joinInput = null;
     this.unsubscribeRoom = null;
+    this.unsubscribeStart = null;
+    this.hasStartedGame = false;
   }
 
   create() {
+    this.hasStartedGame = false;
     this.cameras.main.setBackgroundColor('#0f172a');
     this.add.rectangle(WIDTH / 2, HEIGHT / 2, WIDTH, HEIGHT, 0x0f172a, 1);
 
@@ -33,6 +36,8 @@ export class LobbyScene extends Phaser.Scene {
     this.createButtons();
     this.createRoomPanel();
     this.unsubscribeRoom = multiplayer.onRoomUpdate((room) => this.renderRoom(room));
+    this.unsubscribeStart = multiplayer.onGameStart((room) => this.startMultiplayerGame(room));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.shutdown());
 
     if (!multiplayer.isAvailable()) {
       this.setStatus('Run with Node server to enable multiplayer: npm start');
@@ -144,7 +149,27 @@ export class LobbyScene extends Phaser.Scene {
     this.statusText?.setText(message);
   }
 
+  startMultiplayerGame(room) {
+    if (this.hasStartedGame) return;
+    this.hasStartedGame = true;
+
+    const localPlayer = room.players.find((player) => player.id === multiplayer.playerId);
+    const character = Characters.find((item) => item.id === localPlayer?.characterId) || Characters[0];
+    const bombType = BombTypes.find((item) => item.id === localPlayer?.bombTypeId) || BombTypes[0];
+
+    this.scene.start('GameScene', {
+      character,
+      bombType,
+      multiplayer: true,
+      room,
+      playerId: multiplayer.playerId
+    });
+  }
+
   shutdown() {
     this.unsubscribeRoom?.();
+    this.unsubscribeStart?.();
+    this.unsubscribeRoom = null;
+    this.unsubscribeStart = null;
   }
 }

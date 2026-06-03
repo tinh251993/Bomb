@@ -46,6 +46,7 @@ export class SelectionScene extends Phaser.Scene {
     if (this.isMultiplayer) {
       this.unsubscribeRoom = multiplayer.onRoomUpdate(() => this.renderRoomStatus());
       this.unsubscribeStart = multiplayer.onGameStart((room) => this.startMultiplayerGame(room));
+      this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.shutdown());
       this.renderRoomStatus();
     }
   }
