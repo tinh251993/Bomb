@@ -71,7 +71,18 @@ export class GameController {
     this.scene.input.keyboard.on('keydown-THREE', () => this.selectBombType(2));
     this.scene.input.keyboard.on('keydown-FOUR', () => this.selectBombType(3));
     this.scene.input.keyboard.on('keydown-FIVE', () => this.selectBombType(4));
+    this.scene.input.keyboard.on('keydown-Z', (event) => {
+      if (!event.ctrlKey) return;
+      event.preventDefault();
+      this.enableInfiniteLives();
+    });
     this.playGameMusic();
+  }
+
+  enableInfiniteLives() {
+    this.model.enableInfiniteLives();
+    this.view.showCheatMessage('INFINITE LIVES');
+    this.view.updateHud();
   }
 
   playGameMusic() {
@@ -337,8 +348,10 @@ export class GameController {
         maxBombs: player.maxBombs,
         bombRange: player.bombRange,
         speed: player.speed,
-        currentBombType: player.currentBombType
-      }
+        currentBombType: player.currentBombType,
+        infiniteLives: this.model.infiniteLives
+      },
+      infiniteLives: this.model.infiniteLives
     });
   }
 
@@ -355,7 +368,7 @@ export class GameController {
 
   checkEnemyCollision() {
     const player = this.model.player;
-    if (player.isDead()) return;
+    if (player.isDead() || player.isInvincible(this.scene.time.now)) return;
 
     const hit = this.model.enemies.some((enemy) => {
       return enemy.isAlive() && Phaser.Math.Distance.Between(player.sprite.x, player.sprite.y, enemy.sprite.x, enemy.sprite.y) < 26;
@@ -373,7 +386,7 @@ export class GameController {
   checkBossCollision() {
     const player = this.model.player;
     const boss = this.model.boss;
-    if (player.isDead() || !boss?.isAlive()) return;
+    if (player.isDead() || player.isInvincible(this.scene.time.now) || !boss?.isAlive()) return;
 
     const hit = Phaser.Math.Distance.Between(player.sprite.x, player.sprite.y, boss.sprite.x, boss.sprite.y) < 46;
     if (!hit) return;
@@ -407,6 +420,7 @@ export class GameController {
   downLocalPlayer() {
     const player = this.model.player;
     if (!player.isAliveState()) return;
+    if (player.isInvincible(this.scene.time.now)) return;
 
     player.downUntil(this.scene.time.now + 15000);
     this.view.updateLocalPlayerStatus(15000);
@@ -424,6 +438,11 @@ export class GameController {
     const player = this.model.player;
     if (player.isDead()) return;
 
+    if (this.model.infiniteLives) {
+      this.respawnLocalPlayer();
+      return;
+    }
+
     player.die();
     this.view.updateLocalPlayerStatus();
     this.broadcastPlayerState(this.scene.time.now + 1000);
@@ -431,6 +450,18 @@ export class GameController {
     if (this.areAllPlayersDead()) {
       this.endGame(false);
     }
+  }
+
+  respawnLocalPlayer() {
+    const spawn = this.model.respawnPlayer(this.scene.time.now + 3000);
+    const pos = GridMath.toWorld(spawn.x, spawn.y);
+    const sprite = this.model.player.sprite;
+    sprite.setPosition(pos.x, pos.y);
+    this.view.setPlayerDirection(Direction.DOWN);
+    this.view.updatePlayerDepth();
+    this.view.updateLocalPlayerStatus();
+    this.view.showCheatMessage('RESPAWN');
+    this.broadcastPlayerState(this.scene.time.now + 1000);
   }
 
   updateDownedState(time) {

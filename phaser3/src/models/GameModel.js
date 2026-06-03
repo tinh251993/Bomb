@@ -41,6 +41,7 @@ export class GameModel {
     this.map = new TileMap(this.level);
     this.player = new Player(spawn.x, spawn.y, this.selectedCharacter, this.selectedBombType);
     this.applyPlayerStats(options.playerStats);
+    this.infiniteLives = Boolean(options.infiniteLives || options.playerStats?.infiniteLives);
     this.enemies = [];
     this.boss = null;
     this.bombs = new Map();
@@ -82,6 +83,16 @@ export class GameModel {
   spawnBoss() {
     const pos = this.map.findNearestOpen(BOSS_SPAWN.x, BOSS_SPAWN.y);
     this.boss = new Boss(pos.x, pos.y);
+  }
+
+  enableInfiniteLives() {
+    this.infiniteLives = true;
+  }
+
+  respawnPlayer(invincibleUntil) {
+    this.player.setGridPosition(SHARED_PLAYER_SPAWN.x, SHARED_PLAYER_SPAWN.y);
+    this.player.respawn(invincibleUntil);
+    return SHARED_PLAYER_SPAWN;
   }
 
   canPlaceBomb() {

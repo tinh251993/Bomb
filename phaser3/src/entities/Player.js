@@ -10,6 +10,7 @@ export class Player extends Character {
     this.currentBombType = bombType;
     this.status = 'alive';
     this.downedUntil = 0;
+    this.invincibleUntil = 0;
   }
 
   addBombCapacity() {
@@ -40,6 +41,10 @@ export class Player extends Character {
     return this.status === 'dead';
   }
 
+  isInvincible(time) {
+    return this.invincibleUntil > time;
+  }
+
   downUntil(time) {
     if (this.status === 'dead') return;
     this.status = 'downed';
@@ -56,5 +61,11 @@ export class Player extends Character {
   die() {
     this.status = 'dead';
     this.downedUntil = 0;
+  }
+
+  respawn(invincibleUntil) {
+    this.status = 'alive';
+    this.downedUntil = 0;
+    this.invincibleUntil = invincibleUntil;
   }
 }

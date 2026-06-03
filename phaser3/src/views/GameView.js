@@ -12,6 +12,7 @@ export class GameView {
     this.bossHealthBg = null;
     this.bossHealthFill = null;
     this.bossHealthText = null;
+    this.cheatText = null;
   }
 
   preload() {
@@ -132,6 +133,13 @@ export class GameView {
       backgroundColor: '#111827',
       padding: { x: 6, y: 3 }
     }).setOrigin(0.5).setDepth(20001).setVisible(false);
+    this.cheatText = this.scene.add.text(WIDTH / 2, HUD + 48, '', {
+      fontFamily: 'Arial',
+      fontSize: '16px',
+      color: '#fef3c7',
+      backgroundColor: '#111827',
+      padding: { x: 10, y: 5 }
+    }).setOrigin(0.5).setDepth(20002).setVisible(false);
     this.drawBossHud();
     this.updateHud();
   }
@@ -156,7 +164,8 @@ export class GameView {
   updateHud() {
     const player = this.model.player;
     const status = player.status === 'alive' ? '' : `   ${player.status.toUpperCase()}`;
-    this.scoreText.setText(`Level ${this.model.level}   Score ${this.model.score}   Bombs ${player.maxBombs}   Range ${player.bombRange}   Type ${player.currentBombType.name}${status}`);
+    const lives = this.model.infiniteLives ? '   Lives INF' : '';
+    this.scoreText.setText(`Level ${this.model.level}   Score ${this.model.score}   Bombs ${player.maxBombs}   Range ${player.bombRange}   Type ${player.currentBombType.name}${lives}${status}`);
   }
 
   setPlayerDirection(direction) {
@@ -178,6 +187,16 @@ export class GameView {
     player.sprite.clearTint();
     player.sprite.setAlpha(1);
     this.localStatusText?.setVisible(false);
+
+    if (player.isInvincible(this.scene.time.now)) {
+      const remaining = Math.ceil((player.invincibleUntil - this.scene.time.now) / 1000);
+      player.sprite.setTint(0xfef08a);
+      player.sprite.setAlpha(0.78);
+      this.localStatusText
+        ?.setText(`INV ${remaining}`)
+        .setPosition(player.sprite.x, player.sprite.y - 34)
+        .setVisible(true);
+    }
 
     if (player.status === 'downed') {
       player.sprite.setTint(0x93c5fd);
@@ -321,6 +340,15 @@ export class GameView {
     this.messageText
       .setText(`LEVEL CLEAR\nNext: Level ${nextLevel}`)
       .setVisible(true);
+  }
+
+  showCheatMessage(message) {
+    if (!this.cheatText) return;
+
+    this.cheatText.setText(message).setVisible(true);
+    this.scene.time.delayedCall(1200, () => {
+      if (this.cheatText?.text === message) this.cheatText.setVisible(false);
+    });
   }
 
   updateBossHud() {
