@@ -92,7 +92,9 @@ export class GameModel {
       if (used.has(key)) return;
 
       used.add(key);
-      this.enemies.push(new Enemy(pos.x, pos.y));
+      const enemy = new Enemy(pos.x, pos.y);
+      enemy.id = `enemy-${this.enemies.length}`;
+      this.enemies.push(enemy);
     });
   }
 
@@ -109,7 +111,9 @@ export class GameModel {
       if (used.has(key)) return;
 
       used.add(key);
-      this.enemies.push(new Enemy(pos.x, pos.y));
+      const enemy = new Enemy(pos.x, pos.y);
+      enemy.id = `enemy-${this.enemies.length}`;
+      this.enemies.push(enemy);
     });
   }
 
@@ -227,9 +231,11 @@ export class GameModel {
   }
 
   maybeDropItem(x, y) {
-    if (Phaser.Math.Between(0, 100) >= 34) return null;
+    if (this.map.randomAt(x, y) >= 0.34) return null;
 
-    const type = Phaser.Utils.Array.GetRandom(['bomb', 'flame', 'speed']);
+    const types = ['bomb', 'flame', 'speed'];
+    const typeIndex = Math.min(types.length - 1, Math.floor(this.map.randomAt(x + 17, y + 31) * types.length));
+    const type = types[typeIndex];
     const item = new Item(x, y, type);
     this.items.set(GridMath.key(x, y), item);
     return item;

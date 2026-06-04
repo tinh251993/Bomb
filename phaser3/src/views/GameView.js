@@ -227,6 +227,13 @@ export class GameView {
     });
   }
 
+  syncEnemy(enemy) {
+    const pos = GridMath.toWorld(enemy.gridX, enemy.gridY);
+    enemy.sprite.setPosition(pos.x, pos.y);
+    enemy.sprite.setVisible(enemy.isAlive());
+    this.updateSpriteDepth(enemy.sprite);
+  }
+
   moveBoss(boss) {
     const pos = GridMath.toWorld(boss.gridX, boss.gridY);
     this.scene.tweens.add({
@@ -238,6 +245,17 @@ export class GameView {
       onUpdate: () => this.updateSpriteDepth(boss.sprite),
       onComplete: () => this.updateSpriteDepth(boss.sprite)
     });
+  }
+
+  syncBoss() {
+    const boss = this.model.boss;
+    if (!boss?.sprite) return;
+
+    const pos = GridMath.toWorld(boss.gridX, boss.gridY);
+    boss.sprite.setPosition(pos.x, pos.y);
+    boss.sprite.setVisible(boss.isAlive());
+    this.updateSpriteDepth(boss.sprite);
+    this.updateBossHud();
   }
 
   createBombSprite(bomb) {

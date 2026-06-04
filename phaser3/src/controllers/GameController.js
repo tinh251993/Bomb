@@ -1,4 +1,4 @@
-import { BombTypes, DIRS, Direction } from '../core/constants.js';
+import { BombTypes, BossBombType, DIRS, Direction } from '../core/constants.js';
 import { GridMath } from '../core/GridMath.js';
 import { multiplayer } from '../services/MultiplayerService.js';
 
@@ -14,8 +14,10 @@ export class GameController {
     this.nextBossThrowAt = 0;
     this.multiplayer = { enabled: false, room: null, playerId: null };
     this.lastStateSentAt = 0;
+    this.lastWorldStateSentAt = 0;
     this.unsubscribeRemoteState = null;
     this.unsubscribeRemoteBomb = null;
+    this.unsubscribeRemoteWorldState = null;
     this.unsubscribeReviveRequest = null;
     this.remoteStatuses = new Map();
     this.lastReviveRequestAt = 0;
@@ -39,12 +41,17 @@ export class GameController {
       if (playerId === this.multiplayer.playerId) return;
       this.placeRemoteBomb(bomb);
     });
+    this.unsubscribeRemoteWorldState = multiplayer.onRemoteWorldState((state) => {
+      if (this.isAuthoritativeHost()) return;
+      this.applyWorldState(state);
+    });
     this.unsubscribeReviveRequest = multiplayer.onReviveRequest(() => {
       this.reviveLocalPlayer();
     });
     this.scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.unsubscribeRemoteState?.();
       this.unsubscribeRemoteBomb?.();
+      this.unsubscribeRemoteWorldState?.();
       this.unsubscribeReviveRequest?.();
     });
   }
@@ -113,13 +120,20 @@ export class GameController {
     this.updateDownedState(time);
     this.handlePlayerMove(delta / 1000);
     this.handleItemPickup();
-    this.handleEnemyMove(time);
-    this.handleBossMove(time);
-    this.handleBossBombThrow(time);
+    if (this.isAuthoritativeHost()) {
+      this.handleEnemyMove(time);
+      this.handleBossMove(time);
+      this.handleBossBombThrow(time);
+      this.broadcastWorldState(time);
+    }
     this.checkEnemyCollision();
     this.checkBossCollision();
     this.checkRemoteRevive(time);
     this.broadcastPlayerState(time);
+  }
+
+  isAuthoritativeHost() {
+    return !this.multiplayer.enabled || multiplayer.isHost();
   }
 
   handlePlayerMove(dt) {
@@ -271,6 +285,12 @@ export class GameController {
       this.view.createBombSprite(bomb);
       const key = GridMath.key(bomb.gridX, bomb.gridY);
       bomb.setTimer(this.scene.time.delayedCall(1650, () => this.explodeBomb(key)));
+      multiplayer.sendBombPlace({
+        x: bomb.gridX,
+        y: bomb.gridY,
+        range: bomb.range,
+        bombTypeId: bomb.type.id
+      });
     });
   }
 
@@ -293,7 +313,9 @@ export class GameController {
   placeRemoteBomb(payload) {
     if (!payload) return;
 
-    const type = BombTypes.find((item) => item.id === payload.bombTypeId) || BombTypes[0];
+    const type = payload.bombTypeId === 'boss'
+      ? BossBombType
+      : BombTypes.find((item) => item.id === payload.bombTypeId) || BombTypes[0];
     const bomb = this.model.placeRemoteBomb(payload.x, payload.y, payload.range || 2, type);
     if (!bomb) return;
 
@@ -347,6 +369,8 @@ export class GameController {
     if (this.model.isPlayerIn(cells)) {
       this.downLocalPlayer();
     }
+
+    if (!this.isAuthoritativeHost()) return;
 
     this.model.killEnemiesIn(cells);
     const bossWasKilled = owner !== 'boss' && this.model.damageBossIn(cells);
@@ -443,6 +467,61 @@ export class GameController {
       status: player.status,
       downedRemainingMs: player.isDowned() ? Math.max(0, player.downedUntil - this.scene.time.now) : 0
     });
+  }
+
+  broadcastWorldState(time) {
+    if (!this.multiplayer.enabled || time - this.lastWorldStateSentAt < 120) return;
+
+    this.lastWorldStateSentAt = time;
+    multiplayer.sendWorldState({
+      enemies: this.model.enemies.map((enemy) => ({
+        id: enemy.id,
+        x: enemy.gridX,
+        y: enemy.gridY,
+        alive: enemy.isAlive()
+      })),
+      boss: this.model.boss ? {
+        x: this.model.boss.gridX,
+        y: this.model.boss.gridY,
+        direction: this.model.boss.direction,
+        health: this.model.boss.health,
+        alive: this.model.boss.isAlive()
+      } : null
+    });
+  }
+
+  applyWorldState(state) {
+    if (!state) return;
+
+    const liveEnemyIds = new Set((state.enemies || []).map((enemyState) => enemyState.id));
+    this.model.enemies.forEach((enemy) => {
+      if (liveEnemyIds.has(enemy.id)) return;
+      enemy.destroy();
+    });
+
+    state.enemies?.forEach((enemyState) => {
+      const enemy = this.model.enemies.find((item) => item.id === enemyState.id);
+      if (!enemy) return;
+
+      if (!enemyState.alive) {
+        enemy.destroy();
+        return;
+      }
+
+      enemy.setGridPosition(enemyState.x, enemyState.y);
+      this.view.syncEnemy(enemy);
+    });
+
+    this.model.enemies = this.model.enemies.filter((enemy) => enemy.isAlive());
+
+    if (state.boss && this.model.boss) {
+      this.model.boss.setGridPosition(state.boss.x, state.boss.y);
+      this.model.boss.setDirection(state.boss.direction || this.model.boss.direction);
+      this.model.boss.health = state.boss.health;
+      if (!state.boss.alive) this.model.boss.destroy();
+      this.view.setBossDirection(this.model.boss.direction);
+      this.view.syncBoss();
+    }
   }
 
   downLocalPlayer() {

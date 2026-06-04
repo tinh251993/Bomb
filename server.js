@@ -93,6 +93,12 @@ io.on('connection', (socket) => {
     });
   });
 
+  socket.on('game:world-state', (state) => {
+    const room = getSocketRoom(socket);
+    if (!room || !room.started || room.hostId !== socket.id) return;
+    socket.to(room.code).emit('game:world-state', state);
+  });
+
   socket.on('game:revive-player', ({ targetPlayerId }) => {
     const room = getSocketRoom(socket);
     if (!room || !room.started || !room.players.has(targetPlayerId)) return;

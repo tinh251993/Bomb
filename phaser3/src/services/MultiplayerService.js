@@ -7,6 +7,7 @@ class MultiplayerService {
     this.startListeners = new Set();
     this.remoteStateListeners = new Set();
     this.remoteBombListeners = new Set();
+    this.remoteWorldStateListeners = new Set();
     this.reviveListeners = new Set();
   }
 
@@ -28,6 +29,9 @@ class MultiplayerService {
     });
     this.socket.on('game:bomb-place', (payload) => {
       this.remoteBombListeners.forEach((listener) => listener(payload));
+    });
+    this.socket.on('game:world-state', (payload) => {
+      this.remoteWorldStateListeners.forEach((listener) => listener(payload));
     });
     this.socket.on('game:revive-request', (payload) => {
       this.reviveListeners.forEach((listener) => listener(payload));
@@ -81,6 +85,11 @@ class MultiplayerService {
     this.socket.emit('game:bomb-place', bomb);
   }
 
+  sendWorldState(state) {
+    if (!this.socket?.connected || !this.room?.started || !this.isHost()) return;
+    this.socket.emit('game:world-state', state);
+  }
+
   requestRevive(targetPlayerId) {
     if (!this.socket?.connected || !this.room?.started || !targetPlayerId) return;
     this.socket.emit('game:revive-player', { targetPlayerId });
@@ -105,6 +114,11 @@ class MultiplayerService {
   onRemoteBombPlace(listener) {
     this.remoteBombListeners.add(listener);
     return () => this.remoteBombListeners.delete(listener);
+  }
+
+  onRemoteWorldState(listener) {
+    this.remoteWorldStateListeners.add(listener);
+    return () => this.remoteWorldStateListeners.delete(listener);
   }
 
   onReviveRequest(listener) {
