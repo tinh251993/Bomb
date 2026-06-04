@@ -51,8 +51,9 @@ export class GameModel {
     this.playerIndex = options.playerIndex || 0;
     this.playerCount = Math.max(1, options.playerCount || 1);
     this.level = Math.min(MAX_LEVEL, Math.max(1, options.level || 1));
+    this.mapSeed = options.mapSeed || 'solo';
     const spawn = SHARED_PLAYER_SPAWN;
-    this.map = new TileMap(this.level);
+    this.map = new TileMap(this.level, this.mapSeed);
     this.player = new Player(spawn.x, spawn.y, this.selectedCharacter, this.selectedBombType);
     this.applyPlayerStats(options.playerStats);
     this.infiniteLives = Boolean(options.infiniteLives || options.playerStats?.infiniteLives);
@@ -151,6 +152,15 @@ export class GameModel {
     if (!this.boss || this.bombs.has(key) || !this.map.isEmpty(x, y)) return null;
 
     const bomb = new Bomb(x, y, this.boss.getBombRange(), BossBombType, 'boss');
+    this.bombs.set(key, bomb);
+    return bomb;
+  }
+
+  placeRemoteBomb(x, y, range, type) {
+    const key = GridMath.key(x, y);
+    if (this.bombs.has(key) || !this.map.isEmpty(x, y)) return null;
+
+    const bomb = new Bomb(x, y, range, type, 'remote');
     this.bombs.set(key, bomb);
     return bomb;
   }

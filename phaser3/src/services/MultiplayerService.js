@@ -6,6 +6,7 @@ class MultiplayerService {
     this.roomListeners = new Set();
     this.startListeners = new Set();
     this.remoteStateListeners = new Set();
+    this.remoteBombListeners = new Set();
     this.reviveListeners = new Set();
   }
 
@@ -21,10 +22,12 @@ class MultiplayerService {
     this.socket.on('room:update', ({ room }) => this.setRoom(room));
     this.socket.on('room:game-start', ({ room }) => {
       this.setRoom(room);
-      this.startListeners.forEach((listener) => listener(room));
     });
     this.socket.on('game:player-state', (payload) => {
       this.remoteStateListeners.forEach((listener) => listener(payload));
+    });
+    this.socket.on('game:bomb-place', (payload) => {
+      this.remoteBombListeners.forEach((listener) => listener(payload));
     });
     this.socket.on('game:revive-request', (payload) => {
       this.reviveListeners.forEach((listener) => listener(payload));
@@ -73,6 +76,11 @@ class MultiplayerService {
     this.socket.emit('game:player-state', state);
   }
 
+  sendBombPlace(bomb) {
+    if (!this.socket?.connected || !this.room?.started) return;
+    this.socket.emit('game:bomb-place', bomb);
+  }
+
   requestRevive(targetPlayerId) {
     if (!this.socket?.connected || !this.room?.started || !targetPlayerId) return;
     this.socket.emit('game:revive-player', { targetPlayerId });
@@ -85,12 +93,18 @@ class MultiplayerService {
 
   onGameStart(listener) {
     this.startListeners.add(listener);
+    if (this.room?.started) window.setTimeout(() => listener(this.room), 0);
     return () => this.startListeners.delete(listener);
   }
 
   onRemotePlayerState(listener) {
     this.remoteStateListeners.add(listener);
     return () => this.remoteStateListeners.delete(listener);
+  }
+
+  onRemoteBombPlace(listener) {
+    this.remoteBombListeners.add(listener);
+    return () => this.remoteBombListeners.delete(listener);
   }
 
   onReviveRequest(listener) {
@@ -107,8 +121,12 @@ class MultiplayerService {
   }
 
   setRoom(room) {
+    const wasStarted = this.room?.started;
     this.room = room;
     this.roomListeners.forEach((listener) => listener(room));
+    if (!wasStarted && room?.started) {
+      this.startListeners.forEach((listener) => listener(room));
+    }
   }
 
   emitWithAck(event, payload) {

@@ -84,6 +84,15 @@ io.on('connection', (socket) => {
     });
   });
 
+  socket.on('game:bomb-place', (bomb) => {
+    const room = getSocketRoom(socket);
+    if (!room || !room.started) return;
+    socket.to(room.code).emit('game:bomb-place', {
+      playerId: socket.id,
+      bomb
+    });
+  });
+
   socket.on('game:revive-player', ({ targetPlayerId }) => {
     const room = getSocketRoom(socket);
     if (!room || !room.started || !room.players.has(targetPlayerId)) return;

@@ -1,7 +1,5 @@
 import { COLS, ROWS, TileType } from '../core/constants.js';
 
-const Phaser = window.Phaser;
-
 const LEVEL_TWO_LAYOUT = [
   '###############',
   '#..#...#...#..#',
@@ -35,8 +33,9 @@ const LEVEL_THREE_LAYOUT = [
 ];
 
 export class TileMap {
-  constructor(level = 1) {
+  constructor(level = 1, seed = 'solo') {
     this.level = level;
+    this.seed = seed;
     this.grid = this.buildGrid();
   }
 
@@ -60,7 +59,7 @@ export class TileMap {
 
         if (border || pillar) {
           row.push(TileType.WALL);
-        } else if (!safe.has(`${x},${y}`) && Phaser.Math.Between(0, 100) < 58) {
+        } else if (!safe.has(`${x},${y}`) && this.randomAt(x, y) < 0.58) {
           row.push(TileType.CRATE);
         } else {
           row.push(TileType.EMPTY);
@@ -70,6 +69,16 @@ export class TileMap {
     }
 
     return grid;
+  }
+
+  randomAt(x, y) {
+    const input = `${this.seed}:${this.level}:${x}:${y}`;
+    let hash = 2166136261;
+    for (let index = 0; index < input.length; index++) {
+      hash ^= input.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0) / 4294967295;
   }
 
   buildFromLayout(layout) {

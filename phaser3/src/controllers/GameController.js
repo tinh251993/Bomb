@@ -15,6 +15,7 @@ export class GameController {
     this.multiplayer = { enabled: false, room: null, playerId: null };
     this.lastStateSentAt = 0;
     this.unsubscribeRemoteState = null;
+    this.unsubscribeRemoteBomb = null;
     this.unsubscribeReviveRequest = null;
     this.remoteStatuses = new Map();
     this.lastReviveRequestAt = 0;
@@ -34,8 +35,17 @@ export class GameController {
       this.remoteStatuses.set(playerId, state?.status || 'alive');
       this.view.updateRemotePlayer(playerId, state);
     });
+    this.unsubscribeRemoteBomb = multiplayer.onRemoteBombPlace(({ playerId, bomb }) => {
+      if (playerId === this.multiplayer.playerId) return;
+      this.placeRemoteBomb(bomb);
+    });
     this.unsubscribeReviveRequest = multiplayer.onReviveRequest(() => {
       this.reviveLocalPlayer();
+    });
+    this.scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.unsubscribeRemoteState?.();
+      this.unsubscribeRemoteBomb?.();
+      this.unsubscribeReviveRequest?.();
     });
   }
 
@@ -267,6 +277,24 @@ export class GameController {
   placeBomb() {
     const tile = GridMath.toGrid(this.model.player.sprite.x, this.model.player.sprite.y);
     const bomb = this.model.placeBomb(tile.x, tile.y);
+    if (!bomb) return;
+
+    this.view.createBombSprite(bomb);
+    const key = GridMath.key(bomb.gridX, bomb.gridY);
+    bomb.setTimer(this.scene.time.delayedCall(1650, () => this.explodeBomb(key)));
+    multiplayer.sendBombPlace({
+      x: bomb.gridX,
+      y: bomb.gridY,
+      range: bomb.range,
+      bombTypeId: bomb.type.id
+    });
+  }
+
+  placeRemoteBomb(payload) {
+    if (!payload) return;
+
+    const type = BombTypes.find((item) => item.id === payload.bombTypeId) || BombTypes[0];
+    const bomb = this.model.placeRemoteBomb(payload.x, payload.y, payload.range || 2, type);
     if (!bomb) return;
 
     this.view.createBombSprite(bomb);
