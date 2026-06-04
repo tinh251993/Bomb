@@ -36,6 +36,9 @@ export class GameController {
       if (playerId === this.multiplayer.playerId) return;
       this.remoteStatuses.set(playerId, state?.status || 'alive');
       this.view.updateRemotePlayer(playerId, state);
+      if (playerId === this.multiplayer.room?.hostId && !this.isAuthoritativeHost()) {
+        this.applyWorldState(state?.world);
+      }
     });
     this.unsubscribeRemoteBomb = multiplayer.onRemoteBombPlace(({ playerId, bomb }) => {
       if (playerId === this.multiplayer.playerId) return;
@@ -457,7 +460,7 @@ export class GameController {
 
     const player = this.model.player;
     this.lastStateSentAt = time;
-    multiplayer.sendPlayerState({
+    const state = {
       x: player.sprite.x,
       y: player.sprite.y,
       gridX: player.gridX,
@@ -466,14 +469,20 @@ export class GameController {
       characterId: player.character.id,
       status: player.status,
       downedRemainingMs: player.isDowned() ? Math.max(0, player.downedUntil - this.scene.time.now) : 0
-    });
+    };
+    if (this.isAuthoritativeHost()) state.world = this.createWorldState();
+    multiplayer.sendPlayerState(state);
   }
 
   broadcastWorldState(time) {
     if (!this.multiplayer.enabled || time - this.lastWorldStateSentAt < 120) return;
 
     this.lastWorldStateSentAt = time;
-    multiplayer.sendWorldState({
+    multiplayer.sendWorldState(this.createWorldState());
+  }
+
+  createWorldState() {
+    return {
       enemies: this.model.enemies.map((enemy) => ({
         id: enemy.id,
         x: enemy.gridX,
@@ -487,7 +496,7 @@ export class GameController {
         health: this.model.boss.health,
         alive: this.model.boss.isAlive()
       } : null
-    });
+    };
   }
 
   applyWorldState(state) {
