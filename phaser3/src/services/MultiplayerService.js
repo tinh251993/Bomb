@@ -103,6 +103,17 @@ class MultiplayerService {
     return response.room;
   }
 
+  async enterGame() {
+    const response = await this.emitWithAck('game:enter', {});
+    if (response?.room) this.setRoom(response.room);
+    return response;
+  }
+
+  async leaveGame() {
+    if (!this.socket?.connected) return;
+    await this.emitWithAck('game:leave', {});
+  }
+
   sendPlayerState(state) {
     if (!this.socket?.connected || !this.room?.started) return;
     this.socket.emit('game:player-state', state);

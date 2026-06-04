@@ -33,6 +33,7 @@ export class GameController {
 
     if (!this.multiplayer.enabled) return;
 
+    multiplayer.enterGame().catch(() => {});
     this.unsubscribeRemoteState = multiplayer.onRemotePlayerState(({ playerId, state }) => {
       if (playerId === this.multiplayer.playerId) return;
       this.remoteStatuses.set(playerId, state?.status || 'alive');
@@ -61,6 +62,7 @@ export class GameController {
       this.unsubscribeRemoteWorldState?.();
       this.unsubscribeReviveRequest?.();
       this.unsubscribeLatency?.();
+      multiplayer.leaveGame().catch(() => {});
     });
   }
 

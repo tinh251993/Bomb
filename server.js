@@ -29,6 +29,8 @@ io.on('connection', (socket) => {
       started: false,
       phase: 'lobby',
       loadingPlayers: new Set(),
+      inGamePlayers: new Set(),
+      cleanupTimer: null,
       players: new Map([[socket.id, player]])
     };
 
@@ -122,6 +124,29 @@ io.on('connection', (socket) => {
     });
   });
 
+  socket.on('game:enter', (_payload, reply) => {
+    const room = getSocketRoom(socket);
+    if (!room || !room.started) return reply?.({ ok: false, message: 'Not in a started room.' });
+
+    room.inGamePlayers.add(socket.id);
+    if (room.cleanupTimer) {
+      clearTimeout(room.cleanupTimer);
+      room.cleanupTimer = null;
+    }
+    emitRoom(room);
+    reply?.({ ok: true, room: serializeRoom(room) });
+  });
+
+  socket.on('game:leave', (_payload, reply) => {
+    const room = getSocketRoom(socket);
+    if (!room) return reply?.({ ok: true });
+
+    room.inGamePlayers.delete(socket.id);
+    cleanupRoomIfGameEmpty(room);
+    if (rooms.has(room.code)) emitRoom(room);
+    reply?.({ ok: true });
+  });
+
   socket.on('game:bomb-place', (bomb) => {
     const room = getSocketRoom(socket);
     if (!room || !room.started) return;
@@ -150,7 +175,10 @@ io.on('connection', (socket) => {
     if (!room) return;
 
     room.players.delete(socket.id);
+    room.loadingPlayers?.delete(socket.id);
+    room.inGamePlayers?.delete(socket.id);
     if (room.players.size === 0) {
+      if (room.cleanupTimer) clearTimeout(room.cleanupTimer);
       rooms.delete(room.code);
       return;
     }
@@ -161,8 +189,8 @@ io.on('connection', (socket) => {
       if (newHost) newHost.isHost = true;
     }
 
-    room.loadingPlayers?.delete(socket.id);
-
+    cleanupRoomIfGameEmpty(room);
+    if (!rooms.has(room.code)) return;
     emitRoom(room);
   });
 });
@@ -187,6 +215,17 @@ function emitRoom(room) {
   io.to(room.code).emit('room:update', { room: serializeRoom(room) });
 }
 
+function cleanupRoomIfGameEmpty(room) {
+  if (room.phase !== 'playing' || room.inGamePlayers.size !== 0 || room.cleanupTimer) return;
+
+  room.cleanupTimer = setTimeout(() => {
+    room.cleanupTimer = null;
+    if (room.phase === 'playing' && room.inGamePlayers.size === 0) {
+      rooms.delete(room.code);
+    }
+  }, 5000);
+}
+
 function serializeRoom(room) {
   return {
     code: room.code,
@@ -194,6 +233,7 @@ function serializeRoom(room) {
     started: room.started,
     phase: room.phase,
     loadingPlayerIds: Array.from(room.loadingPlayers || []),
+    inGamePlayerIds: Array.from(room.inGamePlayers || []),
     players: Array.from(room.players.values()).map((player) => ({
       ...player,
       isHost: player.id === room.hostId
