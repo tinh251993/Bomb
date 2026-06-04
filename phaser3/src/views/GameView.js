@@ -29,7 +29,7 @@ export class GameView {
       });
     });
     load.image('enemy', '../res/quaivat 3_down.png');
-    load.image('boss-pirate', '../res/bigbos_pirate.png');
+    load.image('boss-allmode', '../res/bossallmode.png');
     load.image('boss-bomb', '../res/bomb.gif');
     load.image('item-bomb', '../res/items/item_bomb.gif');
     load.image('item-flame', '../res/items/item_bombsize.gif');
@@ -99,7 +99,7 @@ export class GameView {
     if (!boss) return;
 
     const pos = GridMath.toWorld(boss.gridX, boss.gridY);
-    const sprite = this.scene.add.sprite(pos.x, pos.y, 'boss-pirate').setDisplaySize(92, 118);
+    const sprite = this.scene.add.sprite(pos.x, pos.y, 'boss-allmode').setDisplaySize(92, 118);
     this.updateSpriteDepth(sprite);
     boss.attachSprite(sprite);
   }
