@@ -16,6 +16,8 @@ export class SelectionScene extends Phaser.Scene {
     this.actionLabel = null;
     this.unsubscribeStart = null;
     this.unsubscribeRoom = null;
+    this.unsubscribeLatency = null;
+    this.latencyMs = null;
     this.hasStartedGame = false;
   }
 
@@ -46,6 +48,10 @@ export class SelectionScene extends Phaser.Scene {
     if (this.isMultiplayer) {
       this.unsubscribeRoom = multiplayer.onRoomUpdate(() => this.renderRoomStatus());
       this.unsubscribeStart = multiplayer.onGameStart((room) => this.startMultiplayerGame(room));
+      this.unsubscribeLatency = multiplayer.onLatencyUpdate((latencyMs) => {
+        this.latencyMs = latencyMs;
+        this.renderRoomStatus();
+      });
       this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.shutdown());
       this.renderRoomStatus();
     }
@@ -222,12 +228,14 @@ export class SelectionScene extends Phaser.Scene {
       const mine = player.id === multiplayer.playerId ? 'you' : '';
       return `${host} ${player.name} ${mine} - ${player.ready ? 'ready' : 'choosing'}`;
     });
-    this.roomText.setText(`Room ${room.code}\n${lines.join('   ')}`);
+    const ping = this.latencyMs === null ? 'Ping -- ms' : `Ping ${this.latencyMs} ms`;
+    this.roomText.setText(`Room ${room.code}   ${ping}\n${lines.join('   ')}`);
     this.actionLabel?.setText(multiplayer.isHost() ? 'START ROOM' : 'READY');
   }
 
   shutdown() {
     this.unsubscribeStart?.();
     this.unsubscribeRoom?.();
+    this.unsubscribeLatency?.();
   }
 }

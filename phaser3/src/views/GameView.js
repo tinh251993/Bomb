@@ -13,6 +13,7 @@ export class GameView {
     this.bossHealthFill = null;
     this.bossHealthText = null;
     this.cheatText = null;
+    this.pingText = null;
   }
 
   preload() {
@@ -115,6 +116,11 @@ export class GameView {
       fontSize: '16px',
       color: '#cbd5e1'
     }).setOrigin(1, 0).setDepth(10001);
+    this.pingText = this.scene.add.text(WIDTH - 18, 34, 'Ping -- ms', {
+      fontFamily: 'Arial',
+      fontSize: '14px',
+      color: '#93c5fd'
+    }).setOrigin(1, 0).setDepth(10001).setVisible(false);
     this.messageText = this.scene.add.text(WIDTH / 2, HEIGHT / 2, '', {
       fontFamily: 'Arial',
       fontSize: '32px',
@@ -163,6 +169,13 @@ export class GameView {
     const status = player.status === 'alive' ? '' : `   ${player.status.toUpperCase()}`;
     const lives = this.model.infiniteLives ? '   Lives INF' : '';
     this.scoreText.setText(`Level ${this.model.level}   Score ${this.model.score}   Bombs ${player.maxBombs}   Range ${player.bombRange}   Type ${player.currentBombType.name}${lives}${status}`);
+  }
+
+  updatePing(latencyMs) {
+    if (!this.pingText) return;
+    this.pingText
+      .setText(latencyMs === null ? 'Ping -- ms' : `Ping ${latencyMs} ms`)
+      .setVisible(true);
   }
 
   setPlayerDirection(direction) {

@@ -19,6 +19,7 @@ export class GameController {
     this.unsubscribeRemoteBomb = null;
     this.unsubscribeRemoteWorldState = null;
     this.unsubscribeReviveRequest = null;
+    this.unsubscribeLatency = null;
     this.remoteStatuses = new Map();
     this.lastReviveRequestAt = 0;
   }
@@ -51,11 +52,15 @@ export class GameController {
     this.unsubscribeReviveRequest = multiplayer.onReviveRequest(() => {
       this.reviveLocalPlayer();
     });
+    this.unsubscribeLatency = multiplayer.onLatencyUpdate((latencyMs) => {
+      this.view.updatePing(latencyMs);
+    });
     this.scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.unsubscribeRemoteState?.();
       this.unsubscribeRemoteBomb?.();
       this.unsubscribeRemoteWorldState?.();
       this.unsubscribeReviveRequest?.();
+      this.unsubscribeLatency?.();
     });
   }
 

@@ -12,6 +12,7 @@ export class LobbyScene extends Phaser.Scene {
     this.joinInput = null;
     this.unsubscribeRoom = null;
     this.unsubscribeStart = null;
+    this.unsubscribeLatency = null;
     this.hasStartedGame = false;
   }
 
@@ -37,6 +38,7 @@ export class LobbyScene extends Phaser.Scene {
     this.createRoomPanel();
     this.unsubscribeRoom = multiplayer.onRoomUpdate((room) => this.renderRoom(room));
     this.unsubscribeStart = multiplayer.onGameStart((room) => this.startMultiplayerGame(room));
+    this.unsubscribeLatency = multiplayer.onLatencyUpdate((latencyMs) => this.renderLatency(latencyMs));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.shutdown());
 
     if (!multiplayer.isAvailable()) {
@@ -149,6 +151,12 @@ export class LobbyScene extends Phaser.Scene {
     this.statusText?.setText(message);
   }
 
+  renderLatency(latencyMs) {
+    if (latencyMs === null) return;
+    const base = multiplayer.room ? `Room ${multiplayer.room.code}` : 'Connected';
+    this.setStatus(`${base}   Ping ${latencyMs} ms`);
+  }
+
   startMultiplayerGame(room) {
     if (this.hasStartedGame) return;
     this.hasStartedGame = true;
@@ -169,7 +177,9 @@ export class LobbyScene extends Phaser.Scene {
   shutdown() {
     this.unsubscribeRoom?.();
     this.unsubscribeStart?.();
+    this.unsubscribeLatency?.();
     this.unsubscribeRoom = null;
     this.unsubscribeStart = null;
+    this.unsubscribeLatency = null;
   }
 }

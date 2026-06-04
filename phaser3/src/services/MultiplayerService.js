@@ -9,6 +9,9 @@ class MultiplayerService {
     this.remoteBombListeners = new Set();
     this.remoteWorldStateListeners = new Set();
     this.reviveListeners = new Set();
+    this.latencyListeners = new Set();
+    this.latencyMs = null;
+    this.pingTimer = null;
   }
 
   isAvailable() {
@@ -38,7 +41,10 @@ class MultiplayerService {
     });
 
     return new Promise((resolve, reject) => {
-      this.socket.once('connect', () => resolve(this.socket));
+      this.socket.once('connect', () => {
+        this.startPingMonitor();
+        resolve(this.socket);
+      });
       this.socket.once('connect_error', reject);
     });
   }
@@ -126,6 +132,12 @@ class MultiplayerService {
     return () => this.reviveListeners.delete(listener);
   }
 
+  onLatencyUpdate(listener) {
+    this.latencyListeners.add(listener);
+    if (this.latencyMs !== null) window.setTimeout(() => listener(this.latencyMs), 0);
+    return () => this.latencyListeners.delete(listener);
+  }
+
   getLocalPlayer() {
     return this.room?.players.find((player) => player.id === this.playerId) || null;
   }
@@ -147,6 +159,33 @@ class MultiplayerService {
     return new Promise((resolve) => {
       this.socket.emit(event, payload, resolve);
     });
+  }
+
+  startPingMonitor() {
+    if (this.pingTimer) return;
+
+    this.measureLatency();
+    this.pingTimer = window.setInterval(() => this.measureLatency(), 3000);
+    this.socket.once('disconnect', () => {
+      window.clearInterval(this.pingTimer);
+      this.pingTimer = null;
+      this.setLatency(null);
+    });
+  }
+
+  async measureLatency() {
+    if (!this.socket?.connected) return;
+
+    const startedAt = performance.now();
+    const response = await this.emitWithAck('ping:check', { clientTime: Date.now() });
+    if (!response?.ok) return;
+
+    this.setLatency(Math.round(performance.now() - startedAt));
+  }
+
+  setLatency(latencyMs) {
+    this.latencyMs = latencyMs;
+    this.latencyListeners.forEach((listener) => listener(latencyMs));
   }
 }
 

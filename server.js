@@ -16,6 +16,10 @@ app.use('/phaser3', express.static(path.join(__dirname, 'phaser3')));
 app.get('/', (_req, res) => res.redirect('/phaser3/'));
 
 io.on('connection', (socket) => {
+  socket.on('ping:check', (_payload, reply) => {
+    reply?.({ ok: true, serverTime: Date.now() });
+  });
+
   socket.on('room:create', (_payload, reply) => {
     const code = createRoomCode();
     const player = createPlayer(socket, true);
