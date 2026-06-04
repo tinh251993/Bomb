@@ -4,6 +4,8 @@ class MultiplayerService {
     this.room = null;
     this.playerId = null;
     this.roomListeners = new Set();
+    this.selectionStartListeners = new Set();
+    this.loadingListeners = new Set();
     this.startListeners = new Set();
     this.remoteStateListeners = new Set();
     this.remoteBombListeners = new Set();
@@ -25,6 +27,12 @@ class MultiplayerService {
     this.socket = window.io();
     this.socket.on('room:update', ({ room }) => this.setRoom(room));
     this.socket.on('room:game-start', ({ room }) => {
+      this.setRoom(room);
+    });
+    this.socket.on('room:selection-start', ({ room }) => {
+      this.setRoom(room);
+    });
+    this.socket.on('room:game-loading', ({ room }) => {
       this.setRoom(room);
     });
     this.socket.on('game:player-state', (payload) => {
@@ -81,6 +89,20 @@ class MultiplayerService {
     return response.room;
   }
 
+  async chooseSelection() {
+    const response = await this.emitWithAck('room:choose-selection', {});
+    if (!response.ok) throw new Error(response.message || 'Could not open selection.');
+    this.setRoom(response.room);
+    return response.room;
+  }
+
+  async reportLoadingReady() {
+    const response = await this.emitWithAck('room:loading-ready', {});
+    if (!response.ok) throw new Error(response.message || 'Could not confirm loading.');
+    this.setRoom(response.room);
+    return response.room;
+  }
+
   sendPlayerState(state) {
     if (!this.socket?.connected || !this.room?.started) return;
     this.socket.emit('game:player-state', state);
@@ -110,6 +132,18 @@ class MultiplayerService {
     this.startListeners.add(listener);
     if (this.room?.started) window.setTimeout(() => listener(this.room), 0);
     return () => this.startListeners.delete(listener);
+  }
+
+  onSelectionStart(listener) {
+    this.selectionStartListeners.add(listener);
+    if (this.room?.phase === 'selection') window.setTimeout(() => listener(this.room), 0);
+    return () => this.selectionStartListeners.delete(listener);
+  }
+
+  onGameLoading(listener) {
+    this.loadingListeners.add(listener);
+    if (this.room?.phase === 'loading') window.setTimeout(() => listener(this.room), 0);
+    return () => this.loadingListeners.delete(listener);
   }
 
   onRemotePlayerState(listener) {
@@ -148,8 +182,15 @@ class MultiplayerService {
 
   setRoom(room) {
     const wasStarted = this.room?.started;
+    const previousPhase = this.room?.phase;
     this.room = room;
     this.roomListeners.forEach((listener) => listener(room));
+    if (previousPhase !== 'selection' && room?.phase === 'selection') {
+      this.selectionStartListeners.forEach((listener) => listener(room));
+    }
+    if (previousPhase !== 'loading' && room?.phase === 'loading') {
+      this.loadingListeners.forEach((listener) => listener(room));
+    }
     if (!wasStarted && room?.started) {
       this.startListeners.forEach((listener) => listener(room));
     }

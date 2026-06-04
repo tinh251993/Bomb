@@ -27,6 +27,8 @@ io.on('connection', (socket) => {
       code,
       hostId: socket.id,
       started: false,
+      phase: 'lobby',
+      loadingPlayers: new Set(),
       players: new Map([[socket.id, player]])
     };
 
@@ -67,16 +69,48 @@ io.on('connection', (socket) => {
     reply?.({ ok: true, room: serializeRoom(room) });
   });
 
+  socket.on('room:choose-selection', (_payload, reply) => {
+    const room = getSocketRoom(socket);
+    if (!room) return reply?.({ ok: false, message: 'Not in a room.' });
+    if (room.hostId !== socket.id) return reply?.({ ok: false, message: 'Only host can choose player.' });
+    if (room.started) return reply?.({ ok: false, message: 'Room already started.' });
+
+    room.phase = 'selection';
+    emitRoom(room);
+    io.to(room.code).emit('room:selection-start', { room: serializeRoom(room) });
+    reply?.({ ok: true, room: serializeRoom(room) });
+  });
+
   socket.on('room:start', (_payload, reply) => {
     const room = getSocketRoom(socket);
     if (!room) return reply?.({ ok: false, message: 'Not in a room.' });
     if (room.hostId !== socket.id) return reply?.({ ok: false, message: 'Only host can start.' });
     if (room.players.size < 1) return reply?.({ ok: false, message: 'Room is empty.' });
 
-    room.started = true;
+    room.phase = 'loading';
+    room.loadingPlayers.clear();
     const payload = { room: serializeRoom(room) };
-    io.to(room.code).emit('room:game-start', payload);
+    emitRoom(room);
+    io.to(room.code).emit('room:game-loading', payload);
     reply?.({ ok: true, ...payload });
+  });
+
+  socket.on('room:loading-ready', (_payload, reply) => {
+    const room = getSocketRoom(socket);
+    if (!room) return reply?.({ ok: false, message: 'Not in a room.' });
+    if (room.phase !== 'loading') return reply?.({ ok: false, message: 'Room is not loading.' });
+
+    room.loadingPlayers.add(socket.id);
+    emitRoom(room);
+    reply?.({ ok: true, room: serializeRoom(room) });
+
+    if (room.loadingPlayers.size !== room.players.size) return;
+
+    room.started = true;
+    room.phase = 'playing';
+    const payload = { room: serializeRoom(room) };
+    emitRoom(room);
+    io.to(room.code).emit('room:game-start', payload);
   });
 
   socket.on('game:player-state', (state) => {
@@ -127,6 +161,8 @@ io.on('connection', (socket) => {
       if (newHost) newHost.isHost = true;
     }
 
+    room.loadingPlayers?.delete(socket.id);
+
     emitRoom(room);
   });
 });
@@ -156,6 +192,8 @@ function serializeRoom(room) {
     code: room.code,
     hostId: room.hostId,
     started: room.started,
+    phase: room.phase,
+    loadingPlayerIds: Array.from(room.loadingPlayers || []),
     players: Array.from(room.players.values()).map((player) => ({
       ...player,
       isHost: player.id === room.hostId

@@ -1,6 +1,7 @@
 import { HEIGHT, WIDTH } from './core/constants.js';
 import { GameScene } from './scenes/GameScene.js';
 import { LobbyScene } from './scenes/LobbyScene.js';
+import { LoadingScene } from './scenes/LoadingScene.js';
 import { SelectionScene } from './scenes/SelectionScene.js';
 
 const Phaser = window.Phaser;
@@ -27,7 +28,7 @@ const config = {
   audio: {
     disableWebAudio: false
   },
-  scene: [LobbyScene, SelectionScene, GameScene]
+  scene: [LobbyScene, SelectionScene, LoadingScene, GameScene]
 };
 
 window.__bombGame = new Phaser.Game(config);

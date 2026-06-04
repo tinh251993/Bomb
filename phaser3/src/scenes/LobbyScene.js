@@ -11,9 +11,14 @@ export class LobbyScene extends Phaser.Scene {
     this.statusText = null;
     this.joinInput = null;
     this.unsubscribeRoom = null;
+    this.unsubscribeSelectionStart = null;
+    this.unsubscribeLoading = null;
     this.unsubscribeStart = null;
     this.unsubscribeLatency = null;
     this.hasStartedGame = false;
+    this.chooseButton = null;
+    this.chooseButtonBg = null;
+    this.chooseButtonText = null;
   }
 
   create() {
@@ -37,6 +42,8 @@ export class LobbyScene extends Phaser.Scene {
     this.createButtons();
     this.createRoomPanel();
     this.unsubscribeRoom = multiplayer.onRoomUpdate((room) => this.renderRoom(room));
+    this.unsubscribeSelectionStart = multiplayer.onSelectionStart((room) => this.startSelection(room));
+    this.unsubscribeLoading = multiplayer.onGameLoading((room) => this.startLoading(room));
     this.unsubscribeStart = multiplayer.onGameStart((room) => this.startMultiplayerGame(room));
     this.unsubscribeLatency = multiplayer.onLatencyUpdate((latencyMs) => this.renderLatency(latencyMs));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.shutdown());
@@ -69,13 +76,24 @@ export class LobbyScene extends Phaser.Scene {
       }
     });
 
-    this.createButton(WIDTH / 2, HEIGHT - 84, 250, 56, 'CHOOSE PLAYER', () => {
+    const choose = this.createButton(WIDTH / 2, HEIGHT - 84, 250, 56, 'WAIT HOST', async () => {
       if (!multiplayer.room) {
         this.setStatus('Create or join a room first.');
         return;
       }
-      this.scene.start('SelectionScene', { multiplayer: true });
+      if (!multiplayer.isHost()) {
+        this.setStatus('Waiting for host to choose player.');
+        return;
+      }
+      try {
+        await multiplayer.chooseSelection();
+      } catch (error) {
+        this.setStatus(error.message);
+      }
     });
+    this.chooseButton = choose.button;
+    this.chooseButtonBg = choose.bg;
+    this.chooseButtonText = choose.text;
   }
 
   createJoinInput() {
@@ -134,7 +152,7 @@ export class LobbyScene extends Phaser.Scene {
     button.on('pointerover', () => bg.setFillStyle(0x3b82f6));
     button.on('pointerout', () => bg.setFillStyle(0x2563eb));
     button.on('pointerdown', onClick);
-    return button;
+    return { button, bg, text };
   }
 
   renderRoom(room) {
@@ -145,6 +163,19 @@ export class LobbyScene extends Phaser.Scene {
       const mine = player.id === multiplayer.playerId ? 'you' : '';
       return `${index + 1}. ${host} ${player.name} ${mine} - ${ready}`;
     }).join('\n'));
+    this.renderChooseButton(room);
+  }
+
+  renderChooseButton(room) {
+    if (!this.chooseButtonText || !this.chooseButtonBg) return;
+
+    const isHost = multiplayer.isHost();
+    this.chooseButtonText.setText(isHost ? 'CHOOSE PLAYER' : 'WAIT HOST');
+    this.chooseButtonBg.setFillStyle(isHost ? 0x16a34a : 0x475569);
+    this.chooseButtonBg.setStrokeStyle(3, isHost ? 0xbbf7d0 : 0x94a3b8);
+    if (room.phase === 'selection') this.chooseButtonText.setText('SELECTING...');
+    if (room.phase === 'loading') this.chooseButtonText.setText('LOADING...');
+    if (room.phase === 'playing') this.chooseButtonText.setText('PLAYING');
   }
 
   setStatus(message) {
@@ -157,10 +188,19 @@ export class LobbyScene extends Phaser.Scene {
     this.setStatus(`${base}   Ping ${latencyMs} ms`);
   }
 
+  startSelection(room) {
+    if (this.hasStartedGame) return;
+    this.scene.start('SelectionScene', { multiplayer: true, room });
+  }
+
+  startLoading(room) {
+    if (this.hasStartedGame) return;
+    this.scene.start('LoadingScene', { multiplayer: true, room, playerId: multiplayer.playerId });
+  }
+
   startMultiplayerGame(room) {
     if (this.hasStartedGame) return;
     this.hasStartedGame = true;
-
     const localPlayer = room.players.find((player) => player.id === multiplayer.playerId);
     const character = Characters.find((item) => item.id === localPlayer?.characterId) || Characters[0];
     const bombType = BombTypes.find((item) => item.id === localPlayer?.bombTypeId) || BombTypes[0];
@@ -176,9 +216,13 @@ export class LobbyScene extends Phaser.Scene {
 
   shutdown() {
     this.unsubscribeRoom?.();
+    this.unsubscribeSelectionStart?.();
+    this.unsubscribeLoading?.();
     this.unsubscribeStart?.();
     this.unsubscribeLatency?.();
     this.unsubscribeRoom = null;
+    this.unsubscribeSelectionStart = null;
+    this.unsubscribeLoading = null;
     this.unsubscribeStart = null;
     this.unsubscribeLatency = null;
   }
