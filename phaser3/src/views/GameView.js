@@ -1,4 +1,5 @@
 import { Characters, COLS, HEIGHT, HUD, ROWS, TILE, TileType, WIDTH } from '../core/constants.js';
+import { BossTextures, createBossSheetTextures } from '../core/BossTextureFactory.js';
 import { createBombSheetTextures } from '../core/BombTextureFactory.js';
 import { GridMath } from '../core/GridMath.js';
 
@@ -29,7 +30,7 @@ export class GameView {
       });
     });
     load.image('enemy', '../res/quaivat 3_down.png');
-    load.image('boss-allmode', '../res/bossallmode.png');
+    load.image('boss-allmode-sheet', '../res/bossallmode.png');
     load.image('boss-bomb', '../res/bomb.gif');
     load.image('item-bomb', '../res/items/item_bomb.gif');
     load.image('item-flame', '../res/items/item_bombsize.gif');
@@ -47,6 +48,7 @@ export class GameView {
     this.crateLayer = this.scene.add.group();
     this.effectLayer = this.scene.add.group();
     createBombSheetTextures(this.scene);
+    createBossSheetTextures(this.scene);
     this.drawMap();
     this.drawPlayer();
     this.drawEnemies();
@@ -99,7 +101,7 @@ export class GameView {
     if (!boss) return;
 
     const pos = GridMath.toWorld(boss.gridX, boss.gridY);
-    const sprite = this.scene.add.sprite(pos.x, pos.y, 'boss-allmode').setDisplaySize(92, 118);
+    const sprite = this.scene.add.sprite(pos.x, pos.y, BossTextures.down).setDisplaySize(96, 112);
     this.updateSpriteDepth(sprite);
     boss.attachSprite(sprite);
   }
@@ -184,8 +186,32 @@ export class GameView {
 
   setBossDirection(direction) {
     if (!this.model.boss?.sprite) return;
-    if (direction === 'left') this.model.boss.sprite.setFlipX(true);
-    if (direction === 'right') this.model.boss.sprite.setFlipX(false);
+    this.model.boss.sprite.setFlipX(false);
+    this.model.boss.sprite.setTexture(this.bossTexture(direction));
+  }
+
+  playBossFire() {
+    const boss = this.model.boss;
+    if (!boss?.sprite) return;
+
+    boss.sprite.setTexture(BossTextures.fire);
+    this.scene.time.delayedCall(360, () => {
+      if (boss.sprite?.active) this.setBossDirection(boss.direction);
+    });
+  }
+
+  showBossDead() {
+    const boss = this.model.boss;
+    if (!boss?.sprite) return;
+
+    boss.sprite.setTexture(BossTextures.dead);
+    boss.sprite.setVisible(true);
+    this.scene.tweens.add({
+      targets: boss.sprite,
+      alpha: 0,
+      duration: 520,
+      onComplete: () => boss.sprite?.destroy()
+    });
   }
 
   updatePlayerDepth() {
@@ -409,5 +435,12 @@ export class GameView {
 
   playerTexture(direction) {
     return `${this.model.player.character.id}-${direction}`;
+  }
+
+  bossTexture(direction) {
+    if (direction === 'up') return BossTextures.up;
+    if (direction === 'left') return BossTextures.left;
+    if (direction === 'right') return BossTextures.right;
+    return BossTextures.down;
   }
 }

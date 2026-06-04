@@ -9,6 +9,7 @@ export class Boss extends Character {
     this.maxHealth = 100;
     this.health = this.maxHealth;
     this.dir = Phaser.Utils.Array.GetRandom(DIRS);
+    this.dead = false;
   }
 
   chooseDirection(choices) {
@@ -22,7 +23,11 @@ export class Boss extends Character {
 
   takeDamage(amount = 10) {
     this.health = Math.max(0, this.health - amount);
-    if (this.health <= 0) this.destroy();
+    if (this.health <= 0) this.dead = true;
     return this.health <= 0;
+  }
+
+  isAlive() {
+    return !this.dead && super.isAlive();
   }
 }

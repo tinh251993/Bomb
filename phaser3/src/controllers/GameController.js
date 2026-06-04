@@ -288,6 +288,7 @@ export class GameController {
     if (time < this.nextBossThrowAt) return;
 
     this.nextBossThrowAt = time + 6000;
+    this.view.playBossFire();
     this.model.getRandomBossBombSpots(8).forEach((spot) => {
       const bomb = this.model.placeBossBomb(spot.x, spot.y);
       if (!bomb) return;
@@ -384,7 +385,10 @@ export class GameController {
 
     this.model.killEnemiesIn(cells);
     const bossWasKilled = owner !== 'boss' && this.model.damageBossIn(cells);
-    if (bossWasKilled) this.view.clearBossHud();
+    if (bossWasKilled) {
+      this.view.showBossDead();
+      this.view.clearBossHud();
+    }
     this.view.updateBossHud();
     if (this.model.isLevelCleared()) this.clearLevel();
   }
