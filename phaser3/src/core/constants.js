@@ -8,7 +8,8 @@ export const HEIGHT = ROWS * TILE + HUD;
 export const TileType = Object.freeze({
   EMPTY: 0,
   WALL: 1,
-  CRATE: 2
+  CRATE: 2,
+  WATER: 3
 });
 
 export const Direction = Object.freeze({

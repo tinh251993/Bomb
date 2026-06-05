@@ -30,6 +30,7 @@ export class GameView {
     load.image('floor', '../res/land.png');
     load.image('wall', '../res/boxcot.png');
     load.image('crate', '../res/boxgo3.png');
+    load.image('water', '../res/snow.png');
     load.image('bomb-sheet', '../res/Bomb/bomb.png');
     Characters.forEach((character) => {
       load.image(`${character.id}-card`, character.card);
@@ -74,19 +75,27 @@ export class GameView {
         const pos = GridMath.toWorld(x, y);
         const floor = this.scene.add.image(pos.x, pos.y, 'floor').setDisplaySize(TILE, TILE);
         if (this.model.level === 3) floor.setTint(0xb8f4ff);
+        if (this.model.level === 4) floor.setTint(0x4caf5a);
         this.floorLayer.add(floor);
 
         const tile = this.model.map.get(x, y);
         if (tile === TileType.WALL) {
           const wall = this.scene.add.image(pos.x, pos.y, 'wall').setDisplaySize(TILE, TILE).setDepth(this.depthForY(pos.y));
           if (this.model.level === 3) wall.setTint(0xdffbff);
+          if (this.model.level === 4) wall.setTint(0xd9d0a8);
           this.wallLayer.add(wall);
         }
         if (tile === TileType.CRATE) {
           const crate = this.scene.add.image(pos.x, pos.y, 'crate').setDisplaySize(TILE, TILE).setDepth(this.depthForY(pos.y));
+          if (this.model.level === 4) crate.setTint(0xf3c65c);
           crate.gridX = x;
           crate.gridY = y;
           this.crateLayer.add(crate);
+        }
+        if (tile === TileType.WATER) {
+          const water = this.scene.add.image(pos.x, pos.y, 'water').setDisplaySize(TILE, TILE).setTint(0x38bdf8);
+          water.setDepth(this.depthForY(pos.y) - 1);
+          this.wallLayer.add(water);
         }
       }
     }

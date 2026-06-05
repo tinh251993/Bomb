@@ -32,6 +32,22 @@ const LEVEL_THREE_LAYOUT = [
   '###############'
 ];
 
+const LEVEL_FOUR_LAYOUT = [
+  '###############',
+  '#...#.....#...#',
+  '#.C...WWW...C.#',
+  '#.#.#.WWW.#.#.#',
+  '#...C.....C...#',
+  '#.###.C.C.###.#',
+  '#.....###.....#',
+  '#.C.#.....#.C.#',
+  '#...#C.C.C#...#',
+  '#.#...###...#.#',
+  '#.C.C.....C.C.#',
+  '#...#..C..#...#',
+  '###############'
+];
+
 export class TileMap {
   constructor(level = 1, seed = 'solo') {
     this.level = level;
@@ -42,6 +58,7 @@ export class TileMap {
   buildGrid() {
     if (this.level === 2) return this.buildFromLayout(LEVEL_TWO_LAYOUT);
     if (this.level === 3) return this.buildFromLayout(LEVEL_THREE_LAYOUT);
+    if (this.level === 4) return this.buildFromLayout(LEVEL_FOUR_LAYOUT);
 
     const safe = new Set([
       '1,1', '2,1', '1,2',
@@ -86,6 +103,7 @@ export class TileMap {
       return row.split('').map((cell) => {
         if (cell === '#') return TileType.WALL;
         if (cell === 'C') return TileType.CRATE;
+        if (cell === 'W') return TileType.WATER;
         return TileType.EMPTY;
       });
     });

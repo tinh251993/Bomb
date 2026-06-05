@@ -8,7 +8,7 @@ import { Player } from '../entities/Player.js';
 import { TileMap } from './TileMap.js';
 
 const Phaser = window.Phaser;
-const MAX_LEVEL = 3;
+const MAX_LEVEL = 4;
 const SHARED_PLAYER_SPAWN = { x: 1, y: 1 };
 const ENEMY_SPAWN_HINTS = [
   { x: 13, y: 11 },
@@ -207,7 +207,7 @@ export class GameModel {
         const ty = bomb.gridY + dir.y * step;
         const tile = this.map.get(tx, ty);
 
-        if (tile === TileType.WALL) break;
+        if (tile === TileType.WALL || tile === TileType.WATER) break;
 
         affected.push({ x: tx, y: ty });
 
