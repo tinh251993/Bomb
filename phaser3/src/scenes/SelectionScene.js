@@ -146,14 +146,14 @@ export class SelectionScene extends Phaser.Scene {
     });
 
     LevelOptions.forEach((option, index) => {
-      const x = 108 + index * 168;
+      const x = 86 + index * 136;
       const card = this.add.container(x, 510);
-      const color = option.level === 4 ? 0x166534 : 0x0f3b57;
-      const panel = this.add.rectangle(0, 0, 136, 112, color, 0.9)
+      const color = option.level >= 4 ? 0x166534 : 0x0f3b57;
+      const panel = this.add.rectangle(0, 0, 116, 112, color, 0.9)
         .setStrokeStyle(3, 0x334155);
       const title = this.add.text(0, -24, option.name, {
         fontFamily: 'Arial',
-        fontSize: '18px',
+        fontSize: '16px',
         color: '#f8fafc',
         fontStyle: 'bold'
       }).setOrigin(0.5);
@@ -162,11 +162,11 @@ export class SelectionScene extends Phaser.Scene {
         fontSize: '13px',
         color: '#cbd5e1',
         align: 'center',
-        wordWrap: { width: 112 }
+        wordWrap: { width: 98 }
       }).setOrigin(0.5);
 
       card.add([panel, title, theme]);
-      card.setSize(136, 112);
+      card.setSize(116, 112);
       card.setInteractive({ useHandCursor: true });
       card.on('pointerdown', () => {
         if (this.isMultiplayer && !multiplayer.isHost()) return;

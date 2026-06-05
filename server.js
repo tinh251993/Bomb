@@ -69,7 +69,7 @@ io.on('connection', (socket) => {
     player.bombTypeId = bombTypeId || player.bombTypeId;
     player.ready = true;
     if (room.hostId === socket.id) {
-      room.selectedLevel = Math.min(4, Math.max(1, Number(level) || room.selectedLevel || 1));
+      room.selectedLevel = Math.min(5, Math.max(1, Number(level) || room.selectedLevel || 1));
     }
     emitRoom(room);
     reply?.({ ok: true, room: serializeRoom(room) });

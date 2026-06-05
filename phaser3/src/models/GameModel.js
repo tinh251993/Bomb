@@ -8,7 +8,7 @@ import { Player } from '../entities/Player.js';
 import { TileMap } from './TileMap.js';
 
 const Phaser = window.Phaser;
-const MAX_LEVEL = 4;
+const MAX_LEVEL = 5;
 const SHARED_PLAYER_SPAWN = { x: 1, y: 1 };
 const ENEMY_SPAWN_HINTS = [
   { x: 13, y: 11 },

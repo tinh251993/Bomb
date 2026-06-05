@@ -76,6 +76,7 @@ export class GameView {
         const floor = this.scene.add.image(pos.x, pos.y, 'floor').setDisplaySize(TILE, TILE);
         if (this.model.level === 3) floor.setTint(0xb8f4ff);
         if (this.model.level === 4) floor.setTint(0x4caf5a);
+        if (this.model.level === 5) floor.setTint(0xc49a45);
         this.floorLayer.add(floor);
 
         const tile = this.model.map.get(x, y);
@@ -83,11 +84,13 @@ export class GameView {
           const wall = this.scene.add.image(pos.x, pos.y, 'wall').setDisplaySize(TILE, TILE).setDepth(this.depthForY(pos.y));
           if (this.model.level === 3) wall.setTint(0xdffbff);
           if (this.model.level === 4) wall.setTint(0xd9d0a8);
+          if (this.model.level === 5) wall.setTint(0x6fb34d);
           this.wallLayer.add(wall);
         }
         if (tile === TileType.CRATE) {
           const crate = this.scene.add.image(pos.x, pos.y, 'crate').setDisplaySize(TILE, TILE).setDepth(this.depthForY(pos.y));
           if (this.model.level === 4) crate.setTint(0xf3c65c);
+          if (this.model.level === 5) crate.setTint(0xd99a38);
           crate.gridX = x;
           crate.gridY = y;
           this.crateLayer.add(crate);

@@ -48,6 +48,22 @@ const LEVEL_FOUR_LAYOUT = [
   '###############'
 ];
 
+const LEVEL_FIVE_LAYOUT = [
+  '###############',
+  '#...#.....#...#',
+  '#.C.C.C.C.C.C.#',
+  '#.#...#.#...#.#',
+  '#...C.....C...#',
+  '#C###.C.C.###C#',
+  '#.....#.#.....#',
+  '#.C.#..C..#.C.#',
+  '#...#C...C#...#',
+  '#.#...###...#.#',
+  '#.C.C.....C.C.#',
+  '#...#..C..#...#',
+  '###############'
+];
+
 export class TileMap {
   constructor(level = 1, seed = 'solo') {
     this.level = level;
@@ -59,6 +75,7 @@ export class TileMap {
     if (this.level === 2) return this.buildFromLayout(LEVEL_TWO_LAYOUT);
     if (this.level === 3) return this.buildFromLayout(LEVEL_THREE_LAYOUT);
     if (this.level === 4) return this.buildFromLayout(LEVEL_FOUR_LAYOUT);
+    if (this.level === 5) return this.buildFromLayout(LEVEL_FIVE_LAYOUT);
 
     const safe = new Set([
       '1,1', '2,1', '1,2',
