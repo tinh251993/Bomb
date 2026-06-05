@@ -19,6 +19,7 @@ export class GameController {
     this.unsubscribeRemoteBomb = null;
     this.unsubscribeRemoteWorldState = null;
     this.unsubscribeReviveRequest = null;
+    this.unsubscribeKillEnemiesRequest = null;
     this.unsubscribeLatency = null;
     this.remoteStatuses = new Map();
     this.lastReviveRequestAt = 0;
@@ -53,6 +54,9 @@ export class GameController {
     this.unsubscribeReviveRequest = multiplayer.onReviveRequest(() => {
       this.reviveLocalPlayer();
     });
+    this.unsubscribeKillEnemiesRequest = multiplayer.onKillEnemiesRequest(() => {
+      if (this.isAuthoritativeHost()) this.killAllEnemies();
+    });
     this.unsubscribeLatency = multiplayer.onLatencyUpdate((latencyMs) => {
       this.view.updatePing(latencyMs);
     });
@@ -61,6 +65,7 @@ export class GameController {
       this.unsubscribeRemoteBomb?.();
       this.unsubscribeRemoteWorldState?.();
       this.unsubscribeReviveRequest?.();
+      this.unsubscribeKillEnemiesRequest?.();
       this.unsubscribeLatency?.();
       multiplayer.leaveGame().catch(() => {});
     });
@@ -75,6 +80,8 @@ export class GameController {
       d: Phaser.Input.Keyboard.KeyCodes.D,
       space: Phaser.Input.Keyboard.KeyCodes.SPACE,
       r: Phaser.Input.Keyboard.KeyCodes.R,
+      x: Phaser.Input.Keyboard.KeyCodes.X,
+      z: Phaser.Input.Keyboard.KeyCodes.Z,
       one: Phaser.Input.Keyboard.KeyCodes.ONE,
       two: Phaser.Input.Keyboard.KeyCodes.TWO,
       three: Phaser.Input.Keyboard.KeyCodes.THREE,
@@ -86,6 +93,8 @@ export class GameController {
       Phaser.Input.Keyboard.KeyCodes.DOWN,
       Phaser.Input.Keyboard.KeyCodes.LEFT,
       Phaser.Input.Keyboard.KeyCodes.RIGHT,
+      Phaser.Input.Keyboard.KeyCodes.X,
+      Phaser.Input.Keyboard.KeyCodes.Z,
       Phaser.Input.Keyboard.KeyCodes.SPACE
     ]);
     this.scene.game.canvas.setAttribute('tabindex', '0');
@@ -103,6 +112,11 @@ export class GameController {
       event.preventDefault();
       this.enableInfiniteLives();
     });
+    this.scene.input.keyboard.on('keydown-X', (event) => {
+      if (!event.ctrlKey) return;
+      event.preventDefault();
+      this.requestKillAllEnemies();
+    });
     this.playGameMusic();
   }
 
@@ -110,6 +124,36 @@ export class GameController {
     this.model.enableInfiniteLives();
     this.view.showCheatMessage('INFINITE LIVES');
     this.view.updateHud();
+  }
+
+  requestKillAllEnemies() {
+    if (this.isAuthoritativeHost()) {
+      this.killAllEnemies();
+      return;
+    }
+
+    multiplayer.requestKillEnemies();
+    this.view.showCheatMessage('KILL ENEMIES REQUEST');
+  }
+
+  killAllEnemies() {
+    if (!this.isAuthoritativeHost()) return;
+
+    const killed = this.model.killAllEnemies();
+    if (killed.length === 0) {
+      this.view.showCheatMessage('NO ENEMIES');
+      return;
+    }
+
+    this.view.showCheatMessage('ENEMIES CLEARED');
+    this.view.updateHud();
+    if (this.model.isLevelCleared()) {
+      this.clearLevel();
+      return;
+    }
+    if (this.multiplayer.enabled) {
+      multiplayer.sendWorldState(this.createWorldState());
+    }
   }
 
   playGameMusic() {

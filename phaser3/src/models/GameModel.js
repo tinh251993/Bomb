@@ -295,6 +295,20 @@ export class GameModel {
     return killed;
   }
 
+  killAllEnemies() {
+    const killed = [];
+
+    this.enemies.forEach((enemy) => {
+      if (!enemy.isAlive()) return;
+      enemy.destroy();
+      this.score += 120;
+      killed.push(enemy);
+    });
+
+    this.enemies = [];
+    return killed;
+  }
+
   damageBossIn(cells) {
     if (!this.boss || !this.boss.isAlive()) return false;
 

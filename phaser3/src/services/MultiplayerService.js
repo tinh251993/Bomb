@@ -11,6 +11,7 @@ class MultiplayerService {
     this.remoteBombListeners = new Set();
     this.remoteWorldStateListeners = new Set();
     this.reviveListeners = new Set();
+    this.killEnemiesListeners = new Set();
     this.latencyListeners = new Set();
     this.latencyMs = null;
     this.pingTimer = null;
@@ -46,6 +47,9 @@ class MultiplayerService {
     });
     this.socket.on('game:revive-request', (payload) => {
       this.reviveListeners.forEach((listener) => listener(payload));
+    });
+    this.socket.on('game:kill-enemies-request', (payload) => {
+      this.killEnemiesListeners.forEach((listener) => listener(payload));
     });
 
     return new Promise((resolve, reject) => {
@@ -134,6 +138,11 @@ class MultiplayerService {
     this.socket.emit('game:revive-player', { targetPlayerId });
   }
 
+  requestKillEnemies() {
+    if (!this.socket?.connected || !this.room?.started) return;
+    this.socket.emit('game:kill-enemies');
+  }
+
   onRoomUpdate(listener) {
     this.roomListeners.add(listener);
     return () => this.roomListeners.delete(listener);
@@ -175,6 +184,11 @@ class MultiplayerService {
   onReviveRequest(listener) {
     this.reviveListeners.add(listener);
     return () => this.reviveListeners.delete(listener);
+  }
+
+  onKillEnemiesRequest(listener) {
+    this.killEnemiesListeners.add(listener);
+    return () => this.killEnemiesListeners.delete(listener);
   }
 
   onLatencyUpdate(listener) {

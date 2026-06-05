@@ -170,6 +170,14 @@ io.on('connection', (socket) => {
     });
   });
 
+  socket.on('game:kill-enemies', () => {
+    const room = getSocketRoom(socket);
+    if (!room || !room.started) return;
+    io.to(room.hostId).emit('game:kill-enemies-request', {
+      fromPlayerId: socket.id
+    });
+  });
+
   socket.on('disconnect', () => {
     const room = getSocketRoom(socket);
     if (!room) return;
