@@ -39,6 +39,7 @@ export class GameView {
       });
     });
     load.image('enemy', '../res/quaivat 3_down.png');
+    load.image('forest-enemy', '../res/quaivat3new_down.png');
     load.image(BossTextures.down, '../res/Boss/boss_allmode_down.png');
     load.image(BossTextures.up, '../res/Boss/boss_allmode_up.png');
     load.image(BossTextures.left, '../res/Boss/boss_allmode_left.png');
@@ -115,9 +116,10 @@ export class GameView {
   }
 
   drawEnemies() {
+    const texture = this.model.level >= 4 ? 'forest-enemy' : 'enemy';
     this.model.enemies.forEach((enemy) => {
       const pos = GridMath.toWorld(enemy.gridX, enemy.gridY);
-      const sprite = this.scene.add.sprite(pos.x, pos.y, 'enemy').setDisplaySize(42, 42);
+      const sprite = this.scene.add.sprite(pos.x, pos.y, texture).setDisplaySize(42, 42);
       this.updateSpriteDepth(sprite);
       enemy.attachSprite(sprite);
     });

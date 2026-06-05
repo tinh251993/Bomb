@@ -13,6 +13,8 @@ export class SelectionScene extends Phaser.Scene {
     this.characterCards = [];
     this.bombCards = [];
     this.levelCards = [];
+    this.levelGroupButtons = [];
+    this.activeLevelGroup = 'pirate';
     this.isMultiplayer = false;
     this.roomText = null;
     this.actionLabel = null;
@@ -145,10 +147,16 @@ export class SelectionScene extends Phaser.Scene {
       fontStyle: 'bold'
     });
 
-    const gap = 136;
-    const startX = WIDTH / 2 - ((LevelOptions.length - 1) * gap) / 2;
+    this.addLevelGroupButton(116, 440, 'pirate', 'Pirate');
+    this.addLevelGroupButton(232, 440, 'forest', 'Forest');
+
+    const gap = 156;
     LevelOptions.forEach((option, index) => {
-      const x = startX + index * gap;
+      const group = this.levelGroupFor(option);
+      const groupOptions = LevelOptions.filter((item) => this.levelGroupFor(item) === group);
+      const groupIndex = groupOptions.findIndex((item) => item.level === option.level);
+      const startX = WIDTH / 2 - ((groupOptions.length - 1) * gap) / 2;
+      const x = startX + groupIndex * gap;
       const card = this.add.container(x, 510);
       const color = option.level >= 4 ? 0x166534 : 0x0f3b57;
       const panel = this.add.rectangle(0, 0, 116, 112, color, 0.9)
@@ -172,11 +180,39 @@ export class SelectionScene extends Phaser.Scene {
       card.setInteractive({ useHandCursor: true });
       card.on('pointerdown', () => {
         if (this.isMultiplayer && !multiplayer.isHost()) return;
+        this.activeLevelGroup = this.levelGroupFor(option);
         this.selectedLevel = option;
         this.refreshSelection();
       });
-      this.levelCards.push({ option, panel, baseColor: color });
+      this.levelCards.push({ option, card, panel, baseColor: color });
     });
+  }
+
+  addLevelGroupButton(x, y, group, label) {
+    const button = this.add.container(x, y);
+    const panel = this.add.rectangle(0, 0, 92, 30, 0x0f172a, 0.92)
+      .setStrokeStyle(2, 0x334155);
+    const text = this.add.text(0, 0, label, {
+      fontFamily: 'Arial',
+      fontSize: '14px',
+      color: '#f8fafc',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+
+    button.add([panel, text]);
+    button.setSize(92, 30);
+    button.setInteractive({ useHandCursor: true });
+    button.on('pointerdown', () => {
+      this.activeLevelGroup = group;
+      const firstInGroup = LevelOptions.find((option) => this.levelGroupFor(option) === group);
+      if (firstInGroup) this.selectedLevel = firstInGroup;
+      this.refreshSelection();
+    });
+    this.levelGroupButtons.push({ group, panel });
+  }
+
+  levelGroupFor(option) {
+    return option.level <= 3 ? 'pirate' : 'forest';
   }
 
   addStartButton() {
@@ -231,8 +267,21 @@ export class SelectionScene extends Phaser.Scene {
       panel.setFillStyle(selected ? 0x1f2937 : 0x0f172a, selected ? 0.96 : 0.88);
     });
 
-    this.levelCards.forEach(({ option, panel, baseColor }) => {
+    this.levelGroupButtons.forEach(({ group, panel }) => {
+      const selected = group === this.activeLevelGroup;
+      panel.setStrokeStyle(2, selected ? 0xfacc15 : 0x334155);
+      panel.setFillStyle(selected ? 0x1f2937 : 0x0f172a, selected ? 0.98 : 0.92);
+    });
+
+    this.levelCards.forEach(({ option, card, panel, baseColor }) => {
+      const inActiveGroup = this.levelGroupFor(option) === this.activeLevelGroup;
       const selected = option.level === this.selectedLevel.level;
+      card.setVisible(inActiveGroup);
+      if (inActiveGroup) {
+        card.setInteractive({ useHandCursor: true });
+      } else {
+        card.disableInteractive();
+      }
       panel.setStrokeStyle(3, selected ? 0xfacc15 : 0x334155);
       panel.setFillStyle(selected ? 0x1f2937 : baseColor, selected ? 0.98 : 0.9);
     });
@@ -293,6 +342,7 @@ export class SelectionScene extends Phaser.Scene {
     const roomLevel = LevelOptions.find((option) => option.level === room.selectedLevel);
     if (roomLevel && roomLevel.level !== this.selectedLevel.level) {
       this.selectedLevel = roomLevel;
+      this.activeLevelGroup = this.levelGroupFor(roomLevel);
       this.refreshSelection();
     }
 
