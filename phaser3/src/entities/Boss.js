@@ -10,6 +10,8 @@ export class Boss extends Character {
     this.health = this.maxHealth;
     this.dir = Phaser.Utils.Array.GetRandom(DIRS);
     this.dead = false;
+    this.nextChaseAt = 0;
+    this.chaseUntil = 0;
   }
 
   chooseDirection(choices) {

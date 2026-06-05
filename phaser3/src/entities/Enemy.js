@@ -7,10 +7,11 @@ export class Enemy extends Character {
   constructor(x, y) {
     super(x, y, 1);
     this.dir = Phaser.Utils.Array.GetRandom(DIRS);
+    this.nextChaseAt = 0;
+    this.chaseUntil = 0;
   }
 
   chooseDirection(choices) {
     this.dir = Phaser.Utils.Array.GetRandom(choices);
   }
 }
-

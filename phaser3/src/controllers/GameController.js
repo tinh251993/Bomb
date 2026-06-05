@@ -288,7 +288,10 @@ export class GameController {
       const choices = DIRS.filter((dir) => this.model.isWalkable(enemy.gridX + dir.x, enemy.gridY + dir.y));
       if (choices.length === 0) return;
 
-      if (!this.model.isWalkable(enemy.gridX + enemy.dir.x, enemy.gridY + enemy.dir.y) || Phaser.Math.Between(0, 100) < 28) {
+      const chaseDir = this.getChaseDirection(enemy, time, 10000, 5000);
+      if (chaseDir) {
+        enemy.dir = chaseDir;
+      } else if (!this.model.isWalkable(enemy.gridX + enemy.dir.x, enemy.gridY + enemy.dir.y) || Phaser.Math.Between(0, 100) < 28) {
         enemy.chooseDirection(choices);
       }
 
@@ -305,7 +308,10 @@ export class GameController {
     const choices = DIRS.filter((dir) => this.model.isWalkable(boss.gridX + dir.x, boss.gridY + dir.y));
     if (choices.length === 0) return;
 
-    if (!this.model.isWalkable(boss.gridX + boss.dir.x, boss.gridY + boss.dir.y) || Phaser.Math.Between(0, 100) < 34) {
+    const chaseDir = this.getChaseDirection(boss, time, 15000, 8000);
+    if (chaseDir) {
+      boss.dir = chaseDir;
+    } else if (!this.model.isWalkable(boss.gridX + boss.dir.x, boss.gridY + boss.dir.y) || Phaser.Math.Between(0, 100) < 34) {
       boss.chooseDirection(choices);
     }
 
@@ -313,6 +319,66 @@ export class GameController {
     this.view.setBossDirection(boss.direction);
     boss.setGridPosition(boss.gridX + boss.dir.x, boss.gridY + boss.dir.y);
     this.view.moveBoss(boss);
+  }
+
+  getChaseDirection(actor, time, cooldownMs, durationMs) {
+    if (!actor.nextChaseAt) actor.nextChaseAt = time + cooldownMs;
+    if (time >= actor.nextChaseAt) {
+      actor.chaseUntil = time + durationMs;
+      actor.nextChaseAt = time + cooldownMs;
+    }
+    if (time > actor.chaseUntil) return null;
+
+    const target = this.findNearestAlivePlayer(actor.gridX, actor.gridY);
+    if (!target) return null;
+    return this.findPathDirection(actor.gridX, actor.gridY, target.gridX, target.gridY);
+  }
+
+  findNearestAlivePlayer(fromX, fromY) {
+    const players = [];
+    const local = this.model.player;
+    if (local.isAliveState()) {
+      players.push({ gridX: local.gridX, gridY: local.gridY });
+    }
+
+    this.view.remoteStates.forEach((state) => {
+      if (state?.status !== 'alive') return;
+      if (!Number.isFinite(state.gridX) || !Number.isFinite(state.gridY)) return;
+      players.push({ gridX: state.gridX, gridY: state.gridY });
+    });
+
+    if (players.length === 0) return null;
+    return players.reduce((nearest, player) => {
+      const distance = Math.abs(player.gridX - fromX) + Math.abs(player.gridY - fromY);
+      if (!nearest || distance < nearest.distance) return { ...player, distance };
+      return nearest;
+    }, null);
+  }
+
+  findPathDirection(startX, startY, targetX, targetY) {
+    if (startX === targetX && startY === targetY) return null;
+
+    const queue = [{ x: startX, y: startY, firstDir: null }];
+    const visited = new Set([GridMath.key(startX, startY)]);
+
+    while (queue.length > 0) {
+      const current = queue.shift();
+      for (const dir of DIRS) {
+        const nextX = current.x + dir.x;
+        const nextY = current.y + dir.y;
+        const key = GridMath.key(nextX, nextY);
+        if (visited.has(key)) continue;
+        if (!this.model.isWalkable(nextX, nextY) && !(nextX === targetX && nextY === targetY)) continue;
+
+        const firstDir = current.firstDir || dir;
+        if (nextX === targetX && nextY === targetY) return firstDir;
+
+        visited.add(key);
+        queue.push({ x: nextX, y: nextY, firstDir });
+      }
+    }
+
+    return null;
   }
 
   directionFromDelta(delta) {
