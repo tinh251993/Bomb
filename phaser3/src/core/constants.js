@@ -70,6 +70,13 @@ export const BossBombType = Object.freeze({
   explosionStyle: 'cross'
 });
 
+export const LevelOptions = Object.freeze([
+  { level: 1, name: 'Pirate 1', theme: 'Pirate Map' },
+  { level: 2, name: 'Pirate 2', theme: 'Pirate Map' },
+  { level: 3, name: 'Pirate 3', theme: 'Pirate Map' },
+  { level: 4, name: 'Forest', theme: 'Green Forest' }
+]);
+
 export const Characters = Object.freeze([
   {
     id: 'bebong',

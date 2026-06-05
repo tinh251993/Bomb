@@ -28,6 +28,7 @@ io.on('connection', (socket) => {
       hostId: socket.id,
       started: false,
       phase: 'lobby',
+      selectedLevel: 1,
       loadingPlayers: new Set(),
       inGamePlayers: new Set(),
       cleanupTimer: null,
@@ -57,7 +58,7 @@ io.on('connection', (socket) => {
     reply?.({ ok: true, room: serializeRoom(room), playerId: socket.id });
   });
 
-  socket.on('room:selection', ({ characterId, bombTypeId }, reply) => {
+  socket.on('room:selection', ({ characterId, bombTypeId, level }, reply) => {
     const room = getSocketRoom(socket);
     if (!room) return reply?.({ ok: false, message: 'Not in a room.' });
 
@@ -67,6 +68,9 @@ io.on('connection', (socket) => {
     player.characterId = characterId || player.characterId;
     player.bombTypeId = bombTypeId || player.bombTypeId;
     player.ready = true;
+    if (room.hostId === socket.id) {
+      room.selectedLevel = Math.min(4, Math.max(1, Number(level) || room.selectedLevel || 1));
+    }
     emitRoom(room);
     reply?.({ ok: true, room: serializeRoom(room) });
   });
@@ -240,6 +244,7 @@ function serializeRoom(room) {
     hostId: room.hostId,
     started: room.started,
     phase: room.phase,
+    selectedLevel: room.selectedLevel || 1,
     loadingPlayerIds: Array.from(room.loadingPlayers || []),
     inGamePlayerIds: Array.from(room.inGamePlayers || []),
     players: Array.from(room.players.values()).map((player) => ({

@@ -1,4 +1,4 @@
-import { BombTypes, Characters, HEIGHT, WIDTH } from '../core/constants.js';
+import { BombTypes, Characters, HEIGHT, LevelOptions, WIDTH } from '../core/constants.js';
 import { createBombSheetTextures } from '../core/BombTextureFactory.js';
 import { multiplayer } from '../services/MultiplayerService.js';
 
@@ -9,8 +9,10 @@ export class SelectionScene extends Phaser.Scene {
     super('SelectionScene');
     this.selectedCharacter = Characters[0];
     this.selectedBombType = BombTypes[0];
+    this.selectedLevel = LevelOptions[0];
     this.characterCards = [];
     this.bombCards = [];
+    this.levelCards = [];
     this.isMultiplayer = false;
     this.roomText = null;
     this.actionLabel = null;
@@ -42,6 +44,7 @@ export class SelectionScene extends Phaser.Scene {
     this.addTitle();
     this.addCharacterPicker();
     this.addBombPicker();
+    this.addLevelPicker();
     this.addStartButton();
     this.addRoomStatus();
     this.refreshSelection();
@@ -69,7 +72,7 @@ export class SelectionScene extends Phaser.Scene {
   }
 
   addCharacterPicker() {
-    this.add.text(48, 82, 'Character', {
+    this.add.text(48, 72, 'Character', {
       fontFamily: 'Arial',
       fontSize: '18px',
       color: '#cbd5e1',
@@ -78,11 +81,11 @@ export class SelectionScene extends Phaser.Scene {
 
     Characters.forEach((character, index) => {
       const x = 132 + index * 220;
-      const card = this.add.container(x, 195);
-      const panel = this.add.rectangle(0, 0, 170, 180, 0x0f172a, 0.88)
+      const card = this.add.container(x, 170);
+      const panel = this.add.rectangle(0, 0, 170, 150, 0x0f172a, 0.88)
         .setStrokeStyle(3, 0x334155);
-      const sprite = this.add.image(0, -18, `${character.id}-card`).setDisplaySize(112, 112);
-      const name = this.add.text(0, 70, character.name, {
+      const sprite = this.add.image(0, -18, `${character.id}-card`).setDisplaySize(96, 96);
+      const name = this.add.text(0, 54, character.name, {
         fontFamily: 'Arial',
         fontSize: '18px',
         color: '#f8fafc',
@@ -90,7 +93,7 @@ export class SelectionScene extends Phaser.Scene {
       }).setOrigin(0.5);
 
       card.add([panel, sprite, name]);
-      card.setSize(170, 180);
+      card.setSize(170, 150);
       card.setInteractive({ useHandCursor: true });
       card.on('pointerdown', () => {
         this.selectedCharacter = character;
@@ -101,7 +104,7 @@ export class SelectionScene extends Phaser.Scene {
   }
 
   addBombPicker() {
-    this.add.text(48, 318, 'Bomb type', {
+    this.add.text(48, 258, 'Bomb type', {
       fontFamily: 'Arial',
       fontSize: '18px',
       color: '#cbd5e1',
@@ -110,12 +113,12 @@ export class SelectionScene extends Phaser.Scene {
 
     BombTypes.forEach((type, index) => {
       const x = 76 + index * 142;
-      const card = this.add.container(x, 415);
-      const panel = this.add.rectangle(0, 0, 112, 130, 0x0f172a, 0.88)
+      const card = this.add.container(x, 340);
+      const panel = this.add.rectangle(0, 0, 112, 108, 0x0f172a, 0.88)
         .setStrokeStyle(3, 0x334155);
       const bomb = this.add.image(0, -22, `bomb-${type.id}`)
-        .setDisplaySize(58, 58);
-      const name = this.add.text(0, 42, type.name, {
+        .setDisplaySize(50, 50);
+      const name = this.add.text(0, 34, type.name, {
         fontFamily: 'Arial',
         fontSize: '14px',
         color: '#f8fafc',
@@ -124,7 +127,7 @@ export class SelectionScene extends Phaser.Scene {
       }).setOrigin(0.5);
 
       card.add([panel, bomb, name]);
-      card.setSize(112, 130);
+      card.setSize(112, 108);
       card.setInteractive({ useHandCursor: true });
       card.on('pointerdown', () => {
         this.selectedBombType = type;
@@ -134,8 +137,48 @@ export class SelectionScene extends Phaser.Scene {
     });
   }
 
+  addLevelPicker() {
+    this.add.text(48, 430, 'Map', {
+      fontFamily: 'Arial',
+      fontSize: '18px',
+      color: '#cbd5e1',
+      fontStyle: 'bold'
+    });
+
+    LevelOptions.forEach((option, index) => {
+      const x = 108 + index * 168;
+      const card = this.add.container(x, 510);
+      const color = option.level === 4 ? 0x166534 : 0x0f3b57;
+      const panel = this.add.rectangle(0, 0, 136, 112, color, 0.9)
+        .setStrokeStyle(3, 0x334155);
+      const title = this.add.text(0, -24, option.name, {
+        fontFamily: 'Arial',
+        fontSize: '18px',
+        color: '#f8fafc',
+        fontStyle: 'bold'
+      }).setOrigin(0.5);
+      const theme = this.add.text(0, 18, option.theme, {
+        fontFamily: 'Arial',
+        fontSize: '13px',
+        color: '#cbd5e1',
+        align: 'center',
+        wordWrap: { width: 112 }
+      }).setOrigin(0.5);
+
+      card.add([panel, title, theme]);
+      card.setSize(136, 112);
+      card.setInteractive({ useHandCursor: true });
+      card.on('pointerdown', () => {
+        if (this.isMultiplayer && !multiplayer.isHost()) return;
+        this.selectedLevel = option;
+        this.refreshSelection();
+      });
+      this.levelCards.push({ option, panel, baseColor: color });
+    });
+  }
+
   addStartButton() {
-    const button = this.add.container(WIDTH / 2, HEIGHT - 74);
+    const button = this.add.container(WIDTH / 2, HEIGHT - 44);
     const bg = this.add.rectangle(0, 0, 210, 54, 0x16a34a, 1)
       .setStrokeStyle(3, 0xbbf7d0);
     this.actionLabel = this.add.text(0, 0, this.isMultiplayer ? 'READY' : 'START GAME', {
@@ -158,13 +201,14 @@ export class SelectionScene extends Phaser.Scene {
 
       this.scene.start('GameScene', {
         character: this.selectedCharacter,
-        bombType: this.selectedBombType
+        bombType: this.selectedBombType,
+        level: this.selectedLevel.level
       });
     });
   }
 
   addRoomStatus() {
-    this.roomText = this.add.text(WIDTH / 2, HEIGHT - 132, '', {
+    this.roomText = this.add.text(WIDTH / 2, HEIGHT - 96, '', {
       fontFamily: 'Arial',
       fontSize: '15px',
       color: '#cbd5e1',
@@ -185,6 +229,12 @@ export class SelectionScene extends Phaser.Scene {
       panel.setFillStyle(selected ? 0x1f2937 : 0x0f172a, selected ? 0.96 : 0.88);
     });
 
+    this.levelCards.forEach(({ option, panel, baseColor }) => {
+      const selected = option.level === this.selectedLevel.level;
+      panel.setStrokeStyle(3, selected ? 0xfacc15 : 0x334155);
+      panel.setFillStyle(selected ? 0x1f2937 : baseColor, selected ? 0.98 : 0.9);
+    });
+
     if (this.isMultiplayer) {
       this.actionLabel?.setText(multiplayer.isHost() ? 'START ROOM' : 'READY');
     }
@@ -192,7 +242,7 @@ export class SelectionScene extends Phaser.Scene {
 
   async submitMultiplayerSelection() {
     try {
-      await multiplayer.submitSelection(this.selectedCharacter.id, this.selectedBombType.id);
+      await multiplayer.submitSelection(this.selectedCharacter.id, this.selectedBombType.id, this.selectedLevel.level);
       if (multiplayer.isHost()) {
         const room = await multiplayer.startRoom();
         this.startLoading(room);
@@ -217,7 +267,8 @@ export class SelectionScene extends Phaser.Scene {
       bombType,
       multiplayer: true,
       room,
-      playerId: multiplayer.playerId
+      playerId: multiplayer.playerId,
+      level: room.selectedLevel || this.selectedLevel.level
     });
   }
 
@@ -228,7 +279,8 @@ export class SelectionScene extends Phaser.Scene {
     this.scene.start('LoadingScene', {
       multiplayer: true,
       room,
-      playerId: multiplayer.playerId
+      playerId: multiplayer.playerId,
+      level: room.selectedLevel || this.selectedLevel.level
     });
   }
 
@@ -236,13 +288,19 @@ export class SelectionScene extends Phaser.Scene {
     const room = multiplayer.room;
     if (!room || !this.roomText) return;
 
+    const roomLevel = LevelOptions.find((option) => option.level === room.selectedLevel);
+    if (roomLevel && roomLevel.level !== this.selectedLevel.level) {
+      this.selectedLevel = roomLevel;
+      this.refreshSelection();
+    }
+
     const lines = room.players.map((player) => {
       const host = player.id === room.hostId ? 'HOST' : 'P';
       const mine = player.id === multiplayer.playerId ? 'you' : '';
       return `${host} ${player.name} ${mine} - ${player.ready ? 'ready' : 'choosing'}`;
     });
     const ping = this.latencyMs === null ? 'Ping -- ms' : `Ping ${this.latencyMs} ms`;
-    this.roomText.setText(`Room ${room.code}   ${ping}\n${lines.join('   ')}`);
+    this.roomText.setText(`Room ${room.code}   ${ping}   Map ${this.selectedLevel.name}\n${lines.join('   ')}`);
     this.actionLabel?.setText(multiplayer.isHost() ? 'START ROOM' : 'READY');
   }
 

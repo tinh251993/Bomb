@@ -79,8 +79,8 @@ class MultiplayerService {
     return response.room;
   }
 
-  async submitSelection(characterId, bombTypeId) {
-    const response = await this.emitWithAck('room:selection', { characterId, bombTypeId });
+  async submitSelection(characterId, bombTypeId, level) {
+    const response = await this.emitWithAck('room:selection', { characterId, bombTypeId, level });
     if (!response.ok) throw new Error(response.message || 'Could not save selection.');
     this.setRoom(response.room);
     return response.room;

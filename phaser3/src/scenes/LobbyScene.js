@@ -156,7 +156,7 @@ export class LobbyScene extends Phaser.Scene {
   }
 
   renderRoom(room) {
-    this.roomText.setText(`Room code: ${room.code}   ${room.players.length}/4`);
+    this.roomText.setText(`Room code: ${room.code}   ${room.players.length}/4   Map ${room.selectedLevel || 1}`);
     this.playersText.setText(room.players.map((player, index) => {
       const host = player.id === room.hostId ? 'HOST' : 'P';
       const ready = player.ready ? 'ready' : 'choosing';
@@ -210,7 +210,8 @@ export class LobbyScene extends Phaser.Scene {
       bombType,
       multiplayer: true,
       room,
-      playerId: multiplayer.playerId
+      playerId: multiplayer.playerId,
+      level: room.selectedLevel || 1
     });
   }
 

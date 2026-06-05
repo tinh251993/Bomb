@@ -56,7 +56,7 @@ export class LoadingScene extends Phaser.Scene {
 
     const loaded = room.loadingPlayerIds?.length || 0;
     const total = room.players?.length || 0;
-    this.roomText.setText(`Room ${room.code}\n${loaded}/${total} players connected`);
+    this.roomText.setText(`Room ${room.code}   Map ${room.selectedLevel || 1}\n${loaded}/${total} players connected`);
   }
 
   startGame(room) {
@@ -72,7 +72,8 @@ export class LoadingScene extends Phaser.Scene {
       bombType,
       multiplayer: true,
       room,
-      playerId: multiplayer.playerId
+      playerId: multiplayer.playerId,
+      level: room.selectedLevel || 1
     });
   }
 
