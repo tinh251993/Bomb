@@ -8,7 +8,7 @@ import { Player } from '../entities/Player.js';
 import { TileMap } from './TileMap.js';
 
 const Phaser = window.Phaser;
-const MAX_LEVEL = 5;
+const MAX_LEVEL = 6;
 const SHARED_PLAYER_SPAWN = { x: 1, y: 1 };
 const ENEMY_SPAWN_HINTS = [
   { x: 13, y: 11 },
@@ -43,6 +43,7 @@ const LEVEL_THREE_ENEMY_SPAWN_HINTS = [
   { x: 5, y: 11 }
 ];
 const BOSS_SPAWN = { x: 3, y: 9 };
+const FOREST_BOSS_SPAWN = { x: 12, y: 5 };
 
 export class GameModel {
   constructor(options = {}) {
@@ -82,6 +83,9 @@ export class GameModel {
       this.spawnLevelThreeEnemies();
       return;
     }
+    if (this.level === 6) {
+      this.spawnBoss(FOREST_BOSS_SPAWN);
+    }
 
     const count = this.playerCount * 4;
     const used = new Set();
@@ -117,8 +121,8 @@ export class GameModel {
     });
   }
 
-  spawnBoss() {
-    const pos = this.map.findNearestOpen(BOSS_SPAWN.x, BOSS_SPAWN.y);
+  spawnBoss(spawn = BOSS_SPAWN) {
+    const pos = this.map.findNearestOpen(spawn.x, spawn.y);
     this.boss = new Boss(pos.x, pos.y);
   }
 

@@ -1,5 +1,5 @@
 export const TILE = 48;
-export const COLS = 15;
+export const COLS = 26;
 export const ROWS = 13;
 export const HUD = 56;
 export const WIDTH = COLS * TILE;
@@ -75,7 +75,8 @@ export const LevelOptions = Object.freeze([
   { level: 2, name: 'Pirate 2', theme: 'Pirate Map' },
   { level: 3, name: 'Pirate 3', theme: 'Pirate Map' },
   { level: 4, name: 'Forest', theme: 'Green Forest' },
-  { level: 5, name: 'Forest 2', theme: 'Green Forest' }
+  { level: 5, name: 'Forest 2', theme: 'Green Forest' },
+  { level: 6, name: 'Forest 3', theme: 'Green Boss' }
 ]);
 
 export const Characters = Object.freeze([

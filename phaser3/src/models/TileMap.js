@@ -64,6 +64,22 @@ const LEVEL_FIVE_LAYOUT = [
   '###############'
 ];
 
+const LEVEL_SIX_LAYOUT = [
+  '##########################',
+  '#...#.....#..............#',
+  '#.   ....................#',
+  '#.#......########........#',
+  '#...C....#......#........#',
+  '#C###....#......#..C.CC..#',
+  '#....#...#......#........#',
+  '#.C.#....########.....#..#',
+  '#...#C...................#',
+  '#.#...###...#......C..#..#',
+  '#.C.C.....C.C......C..#..#',
+  '#...#..C..#........C.....#',
+  '##########################'
+];
+
 export class TileMap {
   constructor(level = 1, seed = 'solo') {
     this.level = level;
@@ -76,6 +92,7 @@ export class TileMap {
     if (this.level === 3) return this.buildFromLayout(LEVEL_THREE_LAYOUT);
     if (this.level === 4) return this.buildFromLayout(LEVEL_FOUR_LAYOUT);
     if (this.level === 5) return this.buildFromLayout(LEVEL_FIVE_LAYOUT);
+    if (this.level === 6) return this.buildFromLayout(LEVEL_SIX_LAYOUT);
 
     const safe = new Set([
       '1,1', '2,1', '1,2',
@@ -116,7 +133,8 @@ export class TileMap {
   }
 
   buildFromLayout(layout) {
-    return layout.map((row) => {
+    return layout.map((sourceRow, y) => {
+      const row = this.normalizeRow(sourceRow, y);
       return row.split('').map((cell) => {
         if (cell === '#') return TileType.WALL;
         if (cell === 'C') return TileType.CRATE;
@@ -124,6 +142,13 @@ export class TileMap {
         return TileType.EMPTY;
       });
     });
+  }
+
+  normalizeRow(row, y) {
+    if (row.length === COLS) return row;
+    if (y === 0 || y === ROWS - 1) return '#'.repeat(COLS);
+    const inner = row.slice(1, -1).padEnd(COLS - 2, '.').slice(0, COLS - 2);
+    return `#${inner}#`;
   }
 
   get(x, y) {

@@ -145,8 +145,10 @@ export class SelectionScene extends Phaser.Scene {
       fontStyle: 'bold'
     });
 
+    const gap = 136;
+    const startX = WIDTH / 2 - ((LevelOptions.length - 1) * gap) / 2;
     LevelOptions.forEach((option, index) => {
-      const x = 86 + index * 136;
+      const x = startX + index * gap;
       const card = this.add.container(x, 510);
       const color = option.level >= 4 ? 0x166534 : 0x0f3b57;
       const panel = this.add.rectangle(0, 0, 116, 112, color, 0.9)
