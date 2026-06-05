@@ -1,7 +1,15 @@
 import { Characters, COLS, HEIGHT, HUD, ROWS, TILE, TileType, WIDTH } from '../core/constants.js';
-import { BossTextures, createBossSheetTextures } from '../core/BossTextureFactory.js';
 import { createBombSheetTextures } from '../core/BombTextureFactory.js';
 import { GridMath } from '../core/GridMath.js';
+
+const BossTextures = Object.freeze({
+  down: 'boss-down',
+  up: 'boss-up',
+  left: 'boss-left',
+  right: 'boss-right',
+  fire: 'boss-fire',
+  dead: 'boss-dead'
+});
 
 export class GameView {
   constructor(scene, model) {
@@ -30,7 +38,12 @@ export class GameView {
       });
     });
     load.image('enemy', '../res/quaivat 3_down.png');
-    load.image('boss-allmode-sheet', '../res/bossallmode.png');
+    load.image(BossTextures.down, '../res/Boss/boss_allmode_down.png');
+    load.image(BossTextures.up, '../res/Boss/boss_allmode_up.png');
+    load.image(BossTextures.left, '../res/Boss/boss_allmode_left.png');
+    load.image(BossTextures.right, '../res/Boss/boss_allmode_right.png');
+    load.image(BossTextures.fire, '../res/Boss/boss_allmode_fire.png');
+    load.image(BossTextures.dead, '../res/Boss/boss_allmode_dead.png');
     load.image('boss-bomb', '../res/bomb.gif');
     load.image('item-bomb', '../res/items/item_bomb.gif');
     load.image('item-flame', '../res/items/item_bombsize.gif');
@@ -48,7 +61,6 @@ export class GameView {
     this.crateLayer = this.scene.add.group();
     this.effectLayer = this.scene.add.group();
     createBombSheetTextures(this.scene);
-    createBossSheetTextures(this.scene);
     this.drawMap();
     this.drawPlayer();
     this.drawEnemies();
