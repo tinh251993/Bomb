@@ -1,9 +1,10 @@
 import { BombTypes, BossBombType, BossTypes, Characters, DIRS, TileType } from '../core/constants.js';
 import { GridMath } from '../core/GridMath.js';
 import { Bomb } from '../entities/Bomb.js';
-import { Boss } from '../entities/Boss.js';
+import { EagleBoss } from '../entities/EagleBoss.js';
 import { Enemy } from '../entities/Enemy.js';
 import { Item } from '../entities/Item.js';
+import { PirateBoss } from '../entities/PirateBoss.js';
 import { Player } from '../entities/Player.js';
 import { TileMap } from './TileMap.js';
 
@@ -191,7 +192,9 @@ export class GameModel {
 
   spawnBoss(spawn = BOSS_SPAWN) {
     const pos = this.findNearestBossArea(spawn.x, spawn.y);
-    const boss = new Boss(pos.x, pos.y, 1.2 * this.speedMultiplier, this.resolveBossType(spawn.bossType));
+    const bossType = this.resolveBossType(spawn.bossType);
+    const BossClass = bossType.id === 'eagle' ? EagleBoss : PirateBoss;
+    const boss = new BossClass(pos.x, pos.y, 1.2 * this.speedMultiplier, bossType);
     boss.id = `boss-${this.bosses.length}`;
     this.bosses.push(boss);
     this.boss = this.bosses[0] || null;
