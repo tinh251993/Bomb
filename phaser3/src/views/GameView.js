@@ -298,8 +298,8 @@ export class GameView {
       y: pos.y,
       duration: Math.max(80, Math.round(185 / Math.max(1, boss.speed || 1))),
       ease: 'Linear',
-      onUpdate: () => this.updateSpriteDepth(boss.sprite),
-      onComplete: () => this.updateSpriteDepth(boss.sprite)
+      onUpdate: () => this.updateBossDepth(boss),
+      onComplete: () => this.updateBossDepth(boss)
     });
   }
 
@@ -310,7 +310,7 @@ export class GameView {
     boss.sprite.setPosition(pos.x, pos.y);
     boss.sprite.setVisible(boss.isAlive());
     this.setBossFlying(boss, boss.flying);
-    this.updateSpriteDepth(boss.sprite);
+    this.updateBossDepth(boss);
     this.updateBossHud();
   }
 
@@ -318,8 +318,9 @@ export class GameView {
     if (!boss?.sprite) return;
 
     boss.sprite.clearTint();
-    boss.sprite.setAlpha(flying ? 0.72 : 1);
+    boss.sprite.setAlpha(1);
     if (flying) boss.sprite.setTint(0xbae6fd);
+    this.updateBossDepth(boss);
   }
 
   createBombSprite(bomb) {
@@ -507,6 +508,12 @@ export class GameView {
 
   updateSpriteDepth(sprite) {
     if (sprite) sprite.setDepth(this.depthForY(sprite.y));
+  }
+
+  updateBossDepth(boss) {
+    if (!boss?.sprite) return;
+
+    boss.sprite.setDepth(boss.flying ? 9500 : this.depthForY(boss.sprite.y));
   }
 
   depthForY(y) {
