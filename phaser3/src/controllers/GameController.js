@@ -233,6 +233,7 @@ export class GameController {
     const player = this.model.player;
     if (!player.isAliveState()) return;
 
+    this.model.updatePlayerPassThroughBombs(this.getPlayerOverlapCells(player.sprite.x, player.sprite.y));
     player.setDirection(input.direction);
     this.view.setPlayerDirection(player.direction);
 
@@ -267,6 +268,23 @@ export class GameController {
     player.sprite.y = clamped.y;
     this.view.updatePlayerDepth();
     player.setGridPosition(grid.x, grid.y);
+    this.model.updatePlayerPassThroughBombs(this.getPlayerOverlapCells(player.sprite.x, player.sprite.y));
+  }
+
+  getPlayerOverlapCells(worldX, worldY) {
+    const halfWidth = 13;
+    const halfHeight = 22;
+    const samples = [
+      GridMath.toGrid(worldX - halfWidth, worldY - halfHeight),
+      GridMath.toGrid(worldX + halfWidth, worldY - halfHeight),
+      GridMath.toGrid(worldX - halfWidth, worldY + halfHeight),
+      GridMath.toGrid(worldX + halfWidth, worldY + halfHeight),
+      GridMath.toGrid(worldX, worldY)
+    ];
+
+    const unique = new Map();
+    samples.forEach((cell) => unique.set(GridMath.key(cell.x, cell.y), cell));
+    return Array.from(unique.values());
   }
 
   getPlayerCollisionCells(worldX, worldY, dx, dy) {

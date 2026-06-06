@@ -63,6 +63,7 @@ export class GameModel {
     this.enemies = [];
     this.boss = null;
     this.bombs = new Map();
+    this.playerPassThroughBombs = new Set();
     this.items = new Map();
     this.score = options.score || 0;
     this.gameOver = false;
@@ -198,6 +199,7 @@ export class GameModel {
 
     const bomb = new Bomb(x, y, this.player.bombRange, this.player.currentBombType, 'player');
     this.bombs.set(key, bomb);
+    this.playerPassThroughBombs.add(key);
     return bomb;
   }
 
@@ -245,6 +247,7 @@ export class GameModel {
 
     bomb.destroy();
     this.bombs.delete(key);
+    this.playerPassThroughBombs.delete(key);
     return bomb;
   }
 
@@ -409,7 +412,16 @@ export class GameModel {
     if (!this.map.isEmpty(x, y)) return false;
     const key = GridMath.key(x, y);
     if (!this.bombs.has(key)) return true;
-    return x === this.player.gridX && y === this.player.gridY;
+    return this.playerPassThroughBombs.has(key);
+  }
+
+  updatePlayerPassThroughBombs(overlapCells) {
+    const overlapped = new Set(overlapCells.map((cell) => GridMath.key(cell.x, cell.y)));
+    Array.from(this.playerPassThroughBombs).forEach((key) => {
+      if (!this.bombs.has(key) || !overlapped.has(key)) {
+        this.playerPassThroughBombs.delete(key);
+      }
+    });
   }
 
   endGame(won) {
