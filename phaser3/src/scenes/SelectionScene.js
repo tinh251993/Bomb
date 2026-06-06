@@ -278,11 +278,37 @@ export class SelectionScene extends Phaser.Scene {
       if (!response.ok) throw new Error('Cannot load maps.');
       const payload = await response.json();
       this.serverMaps = Array.isArray(payload.maps) ? payload.maps.filter((map) => Array.isArray(map.layout)) : [];
+      const localMaps = this.readLocalSavedMaps();
+      if (localMaps.length > 0) {
+        this.serverMaps = await this.importLocalMapsToServer(localMaps);
+        localStorage.setItem('bombOnline.savedMaps', JSON.stringify(this.serverMaps));
+      }
       this.renderMapOptions();
       this.refreshSelection();
     } catch (_error) {
       this.serverMaps = [];
     }
+  }
+
+  readLocalSavedMaps() {
+    try {
+      const maps = JSON.parse(localStorage.getItem('bombOnline.savedMaps') || '[]');
+      return Array.isArray(maps) ? maps.filter((map) => Array.isArray(map.layout)) : [];
+    } catch (_error) {
+      return [];
+    }
+  }
+
+  async importLocalMapsToServer(maps) {
+    const response = await fetch('/api/maps/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ maps })
+    });
+    if (!response.ok) return this.serverMaps;
+
+    const payload = await response.json();
+    return Array.isArray(payload.maps) ? payload.maps.filter((map) => Array.isArray(map.layout)) : this.serverMaps;
   }
 
   selectMapOption(value) {

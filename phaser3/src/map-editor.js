@@ -260,10 +260,15 @@ function writeSavedMaps(maps) {
 
 async function fetchSavedMaps() {
   try {
+    const localMaps = readLocalSavedMaps();
     const response = await fetch('/api/maps');
     if (!response.ok) throw new Error('Cannot load server maps.');
     const payload = await response.json();
     serverMaps = Array.isArray(payload.maps) ? payload.maps : [];
+    if (localMaps.length > 0) {
+      serverMaps = await importLocalMapsToServer(localMaps);
+      writeSavedMaps(serverMaps);
+    }
     renderSavedMaps();
     return serverMaps;
   } catch (_error) {
@@ -272,6 +277,20 @@ async function fetchSavedMaps() {
     setStatus('Using local saved maps. Server maps unavailable.');
     return serverMaps;
   }
+}
+
+async function importLocalMapsToServer(maps) {
+  const response = await fetch('/api/maps/import', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ maps })
+  });
+  if (!response.ok) throw new Error('Cannot import local maps.');
+
+  const payload = await response.json();
+  const importedMaps = Array.isArray(payload.maps) ? payload.maps : maps;
+  if (payload.imported > 0) setStatus(`Imported ${payload.imported} local map(s) to server.`);
+  return importedMaps;
 }
 
 async function saveMap() {
@@ -305,6 +324,7 @@ async function saveMap() {
     if (!response.ok) throw new Error('Server save failed.');
     const payload = await response.json();
     serverMaps = Array.isArray(payload.maps) ? payload.maps : maps;
+    writeSavedMaps(serverMaps);
     renderSavedMaps();
     setStatus(`Saved ${type}/${name} to server.`);
   } catch (error) {
@@ -333,6 +353,7 @@ async function deleteSavedMap(map) {
     if (!response.ok) throw new Error('Server delete failed.');
     const payload = await response.json();
     serverMaps = Array.isArray(payload.maps) ? payload.maps : maps;
+    writeSavedMaps(serverMaps);
     renderSavedMaps();
     setStatus(`Deleted ${map.type}/${map.name} from server.`);
   } catch (error) {

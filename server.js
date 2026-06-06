@@ -11,7 +11,8 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 const rooms = new Map();
-const mapsFile = path.join(__dirname, 'data', 'custom-maps.json');
+const dataDir = process.env.DATA_DIR || path.join(__dirname, 'data');
+const mapsFile = path.join(dataDir, 'custom-maps.json');
 
 app.use(express.json({ limit: '1mb' }));
 app.use('/res', express.static(path.join(__dirname, 'res')));
@@ -41,6 +42,33 @@ app.post('/api/maps', (req, res) => {
 
   writeCustomMaps(maps);
   res.json({ ok: true, map: entry, maps });
+});
+
+app.post('/api/maps/import', (req, res) => {
+  const incoming = Array.isArray(req.body?.maps) ? req.body.maps : [];
+  const maps = readCustomMaps();
+  let imported = 0;
+
+  incoming.forEach((item) => {
+    const map = sanitizeCustomMap(item);
+    if (!map) return;
+
+    const existingIndex = maps.findIndex((existing) => existing.type === map.type && existing.name === map.name);
+    const entry = {
+      ...map,
+      updatedAt: item.updatedAt || new Date().toISOString()
+    };
+
+    if (existingIndex >= 0) {
+      maps[existingIndex] = entry;
+    } else {
+      maps.unshift(entry);
+    }
+    imported++;
+  });
+
+  if (imported > 0) writeCustomMaps(maps);
+  res.json({ ok: true, imported, maps });
 });
 
 app.delete('/api/maps/:type/:name', (req, res) => {
@@ -303,6 +331,7 @@ function sanitizeCustomMap(customMap) {
 }
 
 function readCustomMaps() {
+  ensureMapsFile();
   try {
     const maps = JSON.parse(fs.readFileSync(mapsFile, 'utf8'));
     return Array.isArray(maps) ? maps.map(sanitizeCustomMap).filter(Boolean) : [];
@@ -312,8 +341,15 @@ function readCustomMaps() {
 }
 
 function writeCustomMaps(maps) {
-  fs.mkdirSync(path.dirname(mapsFile), { recursive: true });
+  fs.mkdirSync(dataDir, { recursive: true });
   fs.writeFileSync(mapsFile, JSON.stringify(maps, null, 2));
+}
+
+function ensureMapsFile() {
+  if (fs.existsSync(mapsFile)) return;
+
+  fs.mkdirSync(dataDir, { recursive: true });
+  fs.writeFileSync(mapsFile, '[]\n');
 }
 
 function serializeRoom(room) {
@@ -347,4 +383,5 @@ function createRoomCode() {
 
 server.listen(PORT, () => {
   console.log(`Bomb Online server listening on http://127.0.0.1:${PORT}`);
+  console.log(`Custom maps stored at ${mapsFile}`);
 });
