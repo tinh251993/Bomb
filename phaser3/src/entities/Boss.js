@@ -51,7 +51,7 @@ export class Boss extends Character {
     if (this.type?.id !== 'eagle') return this.speed;
 
     const lostPercentSteps = Math.floor(((this.maxHealth - this.health) / this.maxHealth) * 10);
-    return 170 + (this.flying ? 20 : 0) + lostPercentSteps * 10;
+    return 170 - (this.flying ? 20 : 0) + lostPercentSteps * 10;
   }
 
   isEagle() {
