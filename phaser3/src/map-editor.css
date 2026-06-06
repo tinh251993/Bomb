@@ -178,6 +178,7 @@ button:hover {
 }
 
 .asset-gallery h2,
+.upload-panel h2,
 .save-panel h2 {
   margin: 0 0 8px;
   font-size: 16px;
@@ -211,6 +212,76 @@ figcaption {
   color: #cbd5e1;
   font-size: 12px;
   white-space: nowrap;
+}
+
+.upload-panel {
+  margin-bottom: 14px;
+}
+
+.uploaded-assets {
+  display: grid;
+  gap: 8px;
+  max-height: 220px;
+  overflow: auto;
+  margin-top: 8px;
+}
+
+.uploaded-asset {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  background: #020617;
+  padding: 8px;
+}
+
+.uploaded-meta {
+  min-width: 0;
+}
+
+.uploaded-name {
+  overflow: hidden;
+  color: #f8fafc;
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.uploaded-size {
+  margin-top: 2px;
+  color: #93c5fd;
+  font-size: 12px;
+}
+
+.uploaded-preview {
+  display: flex;
+  align-items: end;
+  gap: 6px;
+}
+
+.uploaded-preview img {
+  display: block;
+  object-fit: contain;
+  background:
+    linear-gradient(45deg, #94a3b8 25%, transparent 25%),
+    linear-gradient(-45deg, #94a3b8 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #94a3b8 75%),
+    linear-gradient(-45deg, transparent 75%, #94a3b8 75%);
+  background-color: #e2e8f0;
+  background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+  background-size: 12px 12px;
+}
+
+.preview-tile {
+  width: 48px;
+  height: 48px;
+}
+
+.preview-large {
+  width: 96px;
+  height: 96px;
 }
 
 .save-panel {

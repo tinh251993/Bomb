@@ -9,7 +9,10 @@ const tools = Array.from(document.querySelectorAll('.tool'));
 const mapTypeInput = document.querySelector('#map-type');
 const mapNameInput = document.querySelector('#map-name');
 const savedMaps = document.querySelector('#saved-maps');
+const assetUpload = document.querySelector('#asset-upload');
+const uploadedAssets = document.querySelector('#uploaded-assets');
 const StorageKey = 'bombOnline.savedMaps';
+const AssetStorageKey = 'bombOnline.uploadedAssets';
 
 let currentTile = '.';
 let isPainting = false;
@@ -218,6 +221,105 @@ function renderSavedMaps() {
   });
 }
 
+function readUploadedAssets() {
+  try {
+    return JSON.parse(localStorage.getItem(AssetStorageKey) || '[]');
+  } catch (_error) {
+    return [];
+  }
+}
+
+function writeUploadedAssets(assets) {
+  localStorage.setItem(AssetStorageKey, JSON.stringify(assets));
+}
+
+function uploadAssets(files) {
+  const accepted = Array.from(files).filter((file) => {
+    return file.type === 'image/png' || file.type === 'image/gif';
+  });
+  if (accepted.length === 0) {
+    setStatus('Only PNG/GIF files are accepted.');
+    return;
+  }
+
+  Promise.all(accepted.map(readAssetFile))
+    .then((assets) => {
+      const current = readUploadedAssets();
+      writeUploadedAssets([...assets, ...current].slice(0, 20));
+      renderUploadedAssets();
+      setStatus(`Uploaded ${assets.length} asset(s).`);
+      assetUpload.value = '';
+    })
+    .catch((error) => setStatus(error.message));
+}
+
+function readAssetFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const image = new Image();
+      image.onload = () => {
+        resolve({
+          id: window.crypto?.randomUUID ? window.crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+          name: file.name,
+          type: file.type,
+          width: image.naturalWidth,
+          height: image.naturalHeight,
+          dataUrl: reader.result
+        });
+      };
+      image.onerror = () => reject(new Error(`Cannot read ${file.name}.`));
+      image.src = reader.result;
+    };
+    reader.onerror = () => reject(new Error(`Cannot load ${file.name}.`));
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderUploadedAssets() {
+  const assets = readUploadedAssets();
+  uploadedAssets.innerHTML = '';
+  assets.forEach((asset) => {
+    const row = document.createElement('div');
+    row.className = 'uploaded-asset';
+
+    const meta = document.createElement('div');
+    meta.className = 'uploaded-meta';
+    const name = document.createElement('div');
+    name.className = 'uploaded-name';
+    name.textContent = asset.name;
+    const size = document.createElement('div');
+    size.className = 'uploaded-size';
+    size.textContent = `${asset.width} x ${asset.height} - tile 48px / boss 96px`;
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.textContent = 'Delete';
+    remove.addEventListener('click', () => deleteUploadedAsset(asset.id));
+    meta.append(name, size, remove);
+
+    const preview = document.createElement('div');
+    preview.className = 'uploaded-preview';
+    preview.append(createPreviewImage(asset, 'preview-tile'), createPreviewImage(asset, 'preview-large'));
+
+    row.append(meta, preview);
+    uploadedAssets.appendChild(row);
+  });
+}
+
+function createPreviewImage(asset, className) {
+  const image = document.createElement('img');
+  image.className = className;
+  image.src = asset.dataUrl;
+  image.alt = asset.name;
+  return image;
+}
+
+function deleteUploadedAsset(assetId) {
+  writeUploadedAssets(readUploadedAssets().filter((asset) => asset.id !== assetId));
+  renderUploadedAssets();
+  setStatus('Asset deleted.');
+}
+
 tools.forEach((tool) => {
   tool.addEventListener('click', () => {
     currentTile = tool.dataset.tile;
@@ -235,7 +337,9 @@ document.querySelector('#random-boxes').addEventListener('click', randomBoxes);
 document.querySelector('#copy-layout').addEventListener('click', copyLayout);
 document.querySelector('#import-layout').addEventListener('click', importLayout);
 document.querySelector('#save-map').addEventListener('click', saveMap);
+assetUpload.addEventListener('change', () => uploadAssets(assetUpload.files));
 mapNameInput.addEventListener('input', updateOutput);
 
 renderBoard();
 renderSavedMaps();
+renderUploadedAssets();
