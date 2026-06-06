@@ -698,7 +698,8 @@ export class GameController {
 
   placeBomb() {
     const tile = GridMath.toGrid(this.model.player.sprite.x, this.model.player.sprite.y);
-    const bomb = this.model.placeBomb(tile.x, tile.y);
+    const damageDisabled = this.model.player.isInvincible(this.scene.time.now);
+    const bomb = this.model.placeBomb(tile.x, tile.y, { damageDisabled });
     if (!bomb) return;
 
     this.view.createBombSprite(bomb);
@@ -708,7 +709,8 @@ export class GameController {
       x: bomb.gridX,
       y: bomb.gridY,
       range: bomb.range,
-      bombTypeId: bomb.type.id
+      bombTypeId: bomb.type.id,
+      damageDisabled: bomb.damageDisabled
     });
   }
 
@@ -718,7 +720,9 @@ export class GameController {
     const type = payload.bombTypeId === 'boss'
       ? BossBombType
       : BombTypes.find((item) => item.id === payload.bombTypeId) || BombTypes[0];
-    const bomb = this.model.placeRemoteBomb(payload.x, payload.y, payload.range || 2, type);
+    const bomb = this.model.placeRemoteBomb(payload.x, payload.y, payload.range || 2, type, {
+      damageDisabled: Boolean(payload.damageDisabled)
+    });
     if (!bomb) return;
 
     this.view.createBombSprite(bomb);
@@ -749,7 +753,7 @@ export class GameController {
 
     this.scene.sound.play('bomb-sfx', { volume: 0.32 });
     this.view.drawExplosion(cells, bomb.type);
-    this.applyExplosionDamage(cells, bomb.owner);
+    this.applyExplosionDamage(cells, bomb);
     this.triggerBombsIn(cells);
     this.view.updateHud();
   }
@@ -767,17 +771,18 @@ export class GameController {
     }));
   }
 
-  applyExplosionDamage(cells, owner = 'player') {
-    if (this.model.isPlayerIn(cells)) {
+  applyExplosionDamage(cells, bomb) {
+    const owner = bomb?.owner || 'player';
+    if (!bomb?.damageDisabled && this.model.isPlayerIn(cells)) {
       this.downLocalPlayer();
     }
 
     if (!this.isAuthoritativeHost()) return;
 
-    if (owner !== 'boss') {
+    if (owner !== 'boss' && !bomb?.damageDisabled) {
       this.model.killEnemiesIn(cells);
     }
-    const killedBosses = owner !== 'boss' ? this.model.damageBossIn(cells) : [];
+    const killedBosses = owner !== 'boss' && !bomb?.damageDisabled ? this.model.damageBossIn(cells) : [];
     killedBosses.forEach((boss) => this.view.showBossDead(boss));
     if (!this.model.isBossAlive()) this.view.clearBossHud();
     this.view.updateBossHud();

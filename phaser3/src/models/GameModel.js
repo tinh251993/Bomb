@@ -245,13 +245,13 @@ export class GameModel {
     return Array.from(this.bombs.values()).filter((bomb) => bomb.owner === 'player').length;
   }
 
-  placeBomb(x, y) {
+  placeBomb(x, y, options = {}) {
     if (!this.canPlaceBomb()) return null;
 
     const key = GridMath.key(x, y);
     if (this.bombs.has(key)) return null;
 
-    const bomb = new Bomb(x, y, this.player.bombRange, this.player.currentBombType, 'player');
+    const bomb = new Bomb(x, y, this.player.bombRange, this.player.currentBombType, 'player', options);
     this.bombs.set(key, bomb);
     this.playerPassThroughBombs.add(key);
     return bomb;
@@ -268,11 +268,11 @@ export class GameModel {
     return bomb;
   }
 
-  placeRemoteBomb(x, y, range, type) {
+  placeRemoteBomb(x, y, range, type, options = {}) {
     const key = GridMath.key(x, y);
     if (this.bombs.has(key) || !this.map.isEmpty(x, y)) return null;
 
-    const bomb = new Bomb(x, y, range, type, 'remote');
+    const bomb = new Bomb(x, y, range, type, 'remote', options);
     this.bombs.set(key, bomb);
     return bomb;
   }

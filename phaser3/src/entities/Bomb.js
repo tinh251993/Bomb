@@ -1,10 +1,11 @@
 export class Bomb {
-  constructor(x, y, range, type, owner = 'player') {
+  constructor(x, y, range, type, owner = 'player', options = {}) {
     this.gridX = x;
     this.gridY = y;
     this.range = range;
     this.type = type;
     this.owner = owner;
+    this.damageDisabled = Boolean(options.damageDisabled);
     this.sprite = null;
     this.timer = null;
   }
