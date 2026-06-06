@@ -322,12 +322,47 @@ export class GameView {
   createBombSprite(bomb) {
     const pos = GridMath.toWorld(bomb.gridX, bomb.gridY);
     const texture = bomb.type.id === 'boss' ? 'boss-bomb' : `bomb-${bomb.type.id}`;
-    const sprite = this.scene.add.image(pos.x, pos.y, texture)
+    const isBossBomb = bomb.type.id === 'boss';
+    const sprite = this.scene.add.image(pos.x, isBossBomb ? pos.y - 280 : pos.y, texture)
       .setDisplaySize(42, 42)
       .setDepth(this.depthForY(pos.y) - 3);
+    bomb.attachSprite(sprite);
+
+    if (isBossBomb) {
+      const shadow = this.scene.add.ellipse(pos.x, pos.y + 12, 36, 10, 0x000000, 0.32)
+        .setDepth(this.depthForY(pos.y) - 4)
+        .setScale(0.35);
+      this.scene.tweens.add({
+        targets: sprite,
+        y: pos.y,
+        scaleX: sprite.scaleX,
+        scaleY: sprite.scaleY,
+        duration: 520,
+        ease: 'Cubic.easeIn',
+        onComplete: () => {
+          shadow.destroy();
+          this.startBombPulse(sprite);
+        }
+      });
+      this.scene.tweens.add({
+        targets: shadow,
+        scaleX: 1,
+        scaleY: 1,
+        alpha: 0.48,
+        duration: 520,
+        ease: 'Cubic.easeIn'
+      });
+      return;
+    }
+
+    this.startBombPulse(sprite);
+  }
+
+  startBombPulse(sprite) {
+    if (!sprite?.active) return;
+
     const baseScaleX = sprite.scaleX;
     const baseScaleY = sprite.scaleY;
-    bomb.attachSprite(sprite);
     this.scene.tweens.add({
       targets: sprite,
       scaleX: { from: baseScaleX * 0.92, to: baseScaleX * 1.08 },
