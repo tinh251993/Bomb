@@ -253,7 +253,7 @@ function sanitizeCustomMap(customMap) {
     name: String(customMap.name || 'custom').slice(0, 40),
     layout,
     objects: Array.isArray(customMap.objects) ? customMap.objects.slice(0, 32).map((object) => ({
-      kind: object.kind,
+      kind: ['boss', 'enemy', 'asset'].includes(object.kind) ? object.kind : 'asset',
       x: Number(object.x) || 0,
       y: Number(object.y) || 0,
       width: Number(object.width) || 1,

@@ -369,6 +369,13 @@ function placeObject(x, y) {
     return;
   }
 
+  if (currentMode === 'enemy') {
+    objects.push({ kind: 'enemy', x, y, width: 1, height: 1 });
+    renderBoard();
+    setStatus('Enemy placed.');
+    return;
+  }
+
   if (currentMode === 'asset' && selectedAssetId) {
     const asset = readUploadedAssets().find((item) => item.id === selectedAssetId);
     if (!asset) return;
@@ -396,7 +403,13 @@ function renderObjects() {
     if (!cell) return;
 
     const marker = document.createElement('span');
-    marker.className = `cell-object ${object.kind === 'boss' ? 'boss-object' : 'asset-object'}`;
+    marker.className = `cell-object ${object.kind === 'boss' ? 'boss-object' : object.kind === 'enemy' ? 'enemy-object' : 'asset-object'}`;
+    if (object.kind === 'enemy') {
+      const image = document.createElement('img');
+      image.src = mapTypeInput.value === 'forest' ? '../res/quaivat3new_down.png' : '../res/quaivat 3_down.png';
+      image.alt = 'Enemy';
+      marker.appendChild(image);
+    }
     if (object.kind === 'asset') {
       const asset = assets.find((item) => item.id === object.assetId);
       if (!asset) return;
@@ -426,7 +439,13 @@ objectTools.forEach((tool) => {
     selectedAssetId = null;
     setActiveTool(tool);
     renderUploadedAssets();
-    setStatus(currentMode === 'boss' ? 'Click map to place 2x2 boss.' : 'Click object to remove it.');
+    if (currentMode === 'boss') {
+      setStatus('Click map to place 2x2 boss.');
+    } else if (currentMode === 'enemy') {
+      setStatus('Click map to place enemy.');
+    } else {
+      setStatus('Click object to remove it.');
+    }
   });
 });
 
@@ -441,6 +460,7 @@ document.querySelector('#copy-layout').addEventListener('click', copyLayout);
 document.querySelector('#import-layout').addEventListener('click', importLayout);
 document.querySelector('#save-map').addEventListener('click', saveMap);
 assetUpload.addEventListener('change', () => uploadAssets(assetUpload.files));
+mapTypeInput.addEventListener('change', renderBoard);
 mapNameInput.addEventListener('input', updateOutput);
 
 renderBoard();

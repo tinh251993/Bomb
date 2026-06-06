@@ -179,6 +179,15 @@ button:hover {
   text-shadow: 0 1px 2px #000;
 }
 
+.cell-object.enemy-object {
+  inset: 0;
+}
+
+.cell-object.enemy-object img {
+  width: 30px;
+  height: 30px;
+}
+
 .cell[data-tile="."] {
   background-color: #b98d3a;
   background-image: url("../../res/land.png");

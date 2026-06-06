@@ -97,11 +97,35 @@ export class GameModel {
       this.spawnBoss(FOREST_BOSS_SPAWN);
     }
 
+    const customEnemies = this.customMap?.objects?.filter((object) => object.kind === 'enemy') || [];
+    if (customEnemies.length > 0) {
+      this.spawnCustomEnemies(customEnemies);
+      return;
+    }
+
     const count = this.playerCount * 4;
     const used = new Set();
 
     ENEMY_SPAWN_HINTS.slice(0, count).forEach((spot) => {
       const pos = this.map.findNearestOpen(spot.x, spot.y);
+      const key = GridMath.key(pos.x, pos.y);
+      if (used.has(key)) return;
+
+      used.add(key);
+      const enemy = new Enemy(pos.x, pos.y);
+      enemy.id = `enemy-${this.enemies.length}`;
+      this.enemies.push(enemy);
+    });
+  }
+
+  spawnCustomEnemies(customEnemies) {
+    const used = new Set([
+      GridMath.key(this.player.gridX, this.player.gridY),
+      this.boss ? GridMath.key(this.boss.gridX, this.boss.gridY) : ''
+    ]);
+
+    customEnemies.forEach((spot) => {
+      const pos = this.map.findNearestOpen(Number(spot.x) || 1, Number(spot.y) || 1);
       const key = GridMath.key(pos.x, pos.y);
       if (used.has(key)) return;
 
