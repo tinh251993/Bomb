@@ -223,6 +223,11 @@ export class GameView {
       return;
     }
 
+    if (boss.type?.id === 'pirate') {
+      this.playBossGroundAnimation(boss, direction);
+      return;
+    }
+
     boss.sprite.stop();
     boss.sprite.setTexture(this.bossTexture(direction, boss));
   }
@@ -348,22 +353,29 @@ export class GameView {
 
   createBossAnimations() {
     const eagleType = BossTypes.find((type) => type.id === 'eagle');
-    if (!eagleType) return;
+    if (eagleType) {
+      this.createAnimationOnce(eagleType, 'eagle-fly', Array.from({ length: 8 }, (_item, index) => `fly${index + 1}`), 10);
+      this.createAnimationOnce(eagleType, 'eagle-ground-down', ['moveDown1', 'moveDown2', 'moveDown3'], 5);
+      this.createAnimationOnce(eagleType, 'eagle-ground-up', ['moveUp1', 'moveUp2'], 4);
+      this.createAnimationOnce(eagleType, 'eagle-ground-left', ['moveLeft1', 'moveLeft2'], 5);
+      this.createAnimationOnce(eagleType, 'eagle-ground-right', ['moveRight1', 'moveRight2'], 5);
+    }
 
-    this.createAnimationOnce('eagle-fly', Array.from({ length: 8 }, (_item, index) => `fly${index + 1}`), 10);
-    this.createAnimationOnce('eagle-ground-down', ['moveDown1', 'moveDown2', 'moveDown3'], 5);
-    this.createAnimationOnce('eagle-ground-up', ['moveUp1', 'moveUp2'], 4);
-    this.createAnimationOnce('eagle-ground-left', ['moveLeft1', 'moveLeft2'], 5);
-    this.createAnimationOnce('eagle-ground-right', ['moveRight1', 'moveRight2'], 5);
+    const pirateType = BossTypes.find((type) => type.id === 'pirate');
+    if (pirateType) {
+      this.createAnimationOnce(pirateType, 'pirate-ground-down', ['moveDown1', 'moveDown2'], 5);
+      this.createAnimationOnce(pirateType, 'pirate-ground-up', ['moveUp1', 'moveUp2'], 4);
+      this.createAnimationOnce(pirateType, 'pirate-ground-left', ['moveLeft1', 'moveLeft2'], 5);
+      this.createAnimationOnce(pirateType, 'pirate-ground-right', ['moveRight1', 'moveRight2'], 5);
+    }
   }
 
-  createAnimationOnce(key, states, frameRate) {
-    const eagleType = BossTypes.find((type) => type.id === 'eagle');
-    if (!eagleType || this.scene.anims.exists(key)) return;
+  createAnimationOnce(bossType, key, states, frameRate) {
+    if (!bossType || this.scene.anims.exists(key)) return;
 
     this.scene.anims.create({
       key,
-      frames: states.map((state) => ({ key: this.bossTextureKey(eagleType, state) })),
+      frames: states.map((state) => ({ key: this.bossTextureKey(bossType, state) })),
       frameRate,
       repeat: -1
     });
@@ -386,6 +398,22 @@ export class GameView {
       right: 'eagle-ground-right',
       down: 'eagle-ground-down'
     }[direction] || 'eagle-ground-down';
+
+    if (boss.sprite.anims.currentAnim?.key !== key || !boss.sprite.anims.isPlaying) {
+      boss.sprite.play(key);
+    }
+  }
+
+  playBossGroundAnimation(boss, direction) {
+    if (!boss?.sprite) return;
+
+    const typeId = boss.type?.id || BossTypes[0].id;
+    const key = {
+      up: `${typeId}-ground-up`,
+      left: `${typeId}-ground-left`,
+      right: `${typeId}-ground-right`,
+      down: `${typeId}-ground-down`
+    }[direction] || `${typeId}-ground-down`;
 
     if (boss.sprite.anims.currentAnim?.key !== key || !boss.sprite.anims.isPlaying) {
       boss.sprite.play(key);

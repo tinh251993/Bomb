@@ -80,7 +80,15 @@ export const BossTypes = Object.freeze([
       left: '../res/Boss/piratenew/actions/left_move.png',
       right: '../res/Boss/piratenew/actions/right_move.png',
       fire: '../res/Boss/piratenew/actions/cannon_flash_phase_2.png',
-      dead: '../res/Boss/piratenew/actions/defeated_phase_2.png'
+      dead: '../res/Boss/piratenew/actions/defeated_phase_2.png',
+      moveDown1: '../res/Boss/piratenew/actions/front_view.png',
+      moveDown2: '../res/Boss/piratenew/actions/move_front_1.png',
+      moveUp1: '../res/Boss/piratenew/actions/back_view.png',
+      moveUp2: '../res/Boss/piratenew/actions/right_profile.png',
+      moveLeft1: '../res/Boss/piratenew/actions/left_profile.png',
+      moveLeft2: '../res/Boss/piratenew/actions/left_move.png',
+      moveRight1: '../res/Boss/piratenew/actions/right_profile.png',
+      moveRight2: '../res/Boss/piratenew/actions/right_move.png'
     }
   },
   {
