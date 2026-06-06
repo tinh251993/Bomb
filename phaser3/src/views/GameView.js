@@ -254,13 +254,8 @@ export class GameView {
     this.localStatusText?.setVisible(false);
 
     if (player.isInvincible(this.scene.time.now)) {
-      const remaining = Math.ceil((player.invincibleUntil - this.scene.time.now) / 1000);
       player.sprite.setTint(0xfef08a);
       player.sprite.setAlpha(0.78);
-      this.localStatusText
-        ?.setText(`INV ${remaining}`)
-        .setPosition(player.sprite.x, player.sprite.y - 34)
-        .setVisible(true);
     }
 
     if (player.status === 'downed') {

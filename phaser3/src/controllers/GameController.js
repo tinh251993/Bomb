@@ -803,7 +803,6 @@ export class GameController {
     this.view.setPlayerDirection(Direction.DOWN);
     this.view.updatePlayerDepth();
     this.view.updateLocalPlayerStatus();
-    this.view.showCheatMessage('RESPAWN');
     this.broadcastPlayerState(this.scene.time.now + 1000);
   }
 
