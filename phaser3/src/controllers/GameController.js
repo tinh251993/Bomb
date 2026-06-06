@@ -1,4 +1,4 @@
-import { BombTypes, BossBombType, DIRS, Direction } from '../core/constants.js';
+import { BombTypes, BossBombType, DIRS, Direction, TILE } from '../core/constants.js';
 import { GridMath } from '../core/GridMath.js';
 import { multiplayer } from '../services/MultiplayerService.js';
 
@@ -381,6 +381,11 @@ export class GameController {
   handleBossMove(time) {
     this.model.bosses.forEach((boss) => {
       if (!boss?.isAlive()) return;
+      if (boss.isEagle()) {
+        this.handleEagleMove(boss, time);
+        return;
+      }
+
       if (!boss.nextStepAt) boss.nextStepAt = 0;
       if (time < boss.nextStepAt) return;
       boss.nextStepAt = time + Math.round(260 / boss.speed);
@@ -400,6 +405,102 @@ export class GameController {
       boss.setGridPosition(boss.gridX + boss.dir.x, boss.gridY + boss.dir.y);
       this.view.moveBoss(boss);
     });
+  }
+
+  handleEagleMove(boss, time) {
+    if (!boss.nextFlightAt) boss.nextFlightAt = time + 10000;
+
+    if (!boss.flying && time >= boss.nextFlightAt) {
+      boss.flying = true;
+      boss.flightUntil = time + 4000;
+      boss.nextStepAt = 0;
+      this.view.setBossFlying(boss, true);
+    }
+
+    if (boss.flying && time >= boss.flightUntil) {
+      this.landEagleBoss(boss, time);
+      return;
+    }
+
+    if (time < boss.nextStepAt) return;
+    boss.nextStepAt = time + Math.max(80, Math.round((TILE / boss.getMoveSpeed()) * 1000));
+
+    let dir = null;
+    if (boss.flying) {
+      dir = this.getDirectChaseDirection(boss);
+    } else {
+      const choices = DIRS.filter((candidate) => this.model.canBossOccupy(boss.gridX + candidate.x, boss.gridY + candidate.y, boss));
+      if (choices.length === 0) return;
+      const chaseDir = this.getChaseDirection(boss, time, 15000, 8000);
+      if (chaseDir) {
+        dir = chaseDir;
+      } else if (!this.model.canBossOccupy(boss.gridX + boss.dir.x, boss.gridY + boss.dir.y, boss) || Phaser.Math.Between(0, 100) < 34) {
+        boss.chooseDirection(choices);
+        dir = boss.dir;
+      } else {
+        dir = boss.dir;
+      }
+    }
+
+    if (!dir) return;
+    const nextX = boss.gridX + dir.x;
+    const nextY = boss.gridY + dir.y;
+    const canMove = boss.flying ? this.canFlyingBossMoveTo(nextX, nextY) : this.model.canBossOccupy(nextX, nextY, boss);
+    if (!canMove) return;
+
+    boss.dir = dir;
+    boss.setDirection(this.directionFromDelta(dir));
+    this.view.setBossDirection(boss.direction, boss);
+    boss.setGridPosition(nextX, nextY);
+    this.view.moveBoss(boss);
+  }
+
+  getDirectChaseDirection(boss) {
+    const target = this.findNearestAlivePlayer(boss.gridX, boss.gridY);
+    if (!target) return boss.dir;
+
+    const dx = target.gridX - boss.gridX;
+    const dy = target.gridY - boss.gridY;
+    if (Math.abs(dx) >= Math.abs(dy) && dx !== 0) return { x: Math.sign(dx), y: 0 };
+    if (dy !== 0) return { x: 0, y: Math.sign(dy) };
+    if (dx !== 0) return { x: Math.sign(dx), y: 0 };
+    return null;
+  }
+
+  canFlyingBossMoveTo(x, y) {
+    return x > 0 && y > 0 && x < this.model.map.grid[0].length - 2 && y < this.model.map.grid.length - 2;
+  }
+
+  landEagleBoss(boss, time) {
+    boss.flying = false;
+    boss.nextFlightAt = time + 10000;
+    boss.nextStepAt = time + 500;
+    this.view.setBossFlying(boss, false);
+
+    const centerX = boss.gridX + 1;
+    const centerY = boss.gridY + 1;
+    const destroyed = this.model.destroyTilesInRadius(centerX, centerY, 2);
+    destroyed.forEach((cell) => this.view.removeTile(cell.x, cell.y));
+
+    const radiusCells = [];
+    for (let y = centerY - 2; y <= centerY + 2; y++) {
+      for (let x = centerX - 2; x <= centerX + 2; x++) {
+        if (x < 0 || y < 0 || x >= this.model.map.grid[0].length || y >= this.model.map.grid.length) continue;
+        if (Math.abs(x - centerX) + Math.abs(y - centerY) <= 2) radiusCells.push({ x, y });
+      }
+    }
+    this.model.removeItemsIn(radiusCells);
+    this.triggerBombsIn(radiusCells);
+    this.view.drawExplosion(radiusCells, BossBombType);
+
+    if (boss.health <= boss.maxHealth / 2) {
+      this.scene.time.delayedCall(1000, () => {
+        if (boss.isAlive() && !boss.flying) this.view.playBossFire(boss, 1000);
+      });
+      this.scene.time.delayedCall(2000, () => {
+        if (boss.isAlive() && !boss.flying) this.throwEagleBombs(boss);
+      });
+    }
   }
 
   getChaseDirection(actor, time, cooldownMs, durationMs) {
@@ -478,6 +579,7 @@ export class GameController {
   handleBossBombThrow(time) {
     this.model.bosses.forEach((boss) => {
       if (!boss?.isAlive()) return;
+      if (boss.isEagle()) return;
 
       if (!boss.nextThrowAt) {
         boss.nextThrowAt = time + 6000;
@@ -506,6 +608,23 @@ export class GameController {
           range: bomb.range,
           bombTypeId: bomb.type.id
         });
+      });
+    });
+  }
+
+  throwEagleBombs(boss) {
+    this.model.getRandomBossBombSpots(10).forEach((spot) => {
+      const bomb = this.model.placeBossBomb(spot.x, spot.y, boss, boss.getBombRange());
+      if (!bomb) return;
+
+      this.view.createBombSprite(bomb);
+      const key = GridMath.key(bomb.gridX, bomb.gridY);
+      bomb.setTimer(this.scene.time.delayedCall(1650, () => this.explodeBomb(key)));
+      multiplayer.sendBombPlace({
+        x: bomb.gridX,
+        y: bomb.gridY,
+        range: bomb.range,
+        bombTypeId: bomb.type.id
       });
     });
   }
@@ -715,6 +834,8 @@ export class GameController {
         y: boss.gridY,
         direction: boss.direction,
         health: boss.health,
+        bombRange: boss.bombRange,
+        flying: boss.flying,
         alive: boss.isAlive()
       })),
       boss: this.model.boss ? {
@@ -723,6 +844,8 @@ export class GameController {
         bossType: this.model.boss.type?.id,
         direction: this.model.boss.direction,
         health: this.model.boss.health,
+        bombRange: this.model.boss.bombRange,
+        flying: this.model.boss.flying,
         alive: this.model.boss.isAlive()
       } : null
     };
@@ -761,6 +884,8 @@ export class GameController {
       boss.type = this.model.resolveBossType?.(bossState.bossType) || boss.type;
       boss.setDirection(bossState.direction || boss.direction);
       boss.health = bossState.health;
+      if (Number.isFinite(bossState.bombRange)) boss.bombRange = bossState.bombRange;
+      boss.flying = Boolean(bossState.flying);
       if (!bossState.alive) boss.destroy();
       this.view.setBossDirection(boss.direction, boss);
       this.view.syncBoss(boss);

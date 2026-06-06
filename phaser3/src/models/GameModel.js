@@ -254,13 +254,13 @@ export class GameModel {
     return bomb;
   }
 
-  placeBossBomb(x, y, sourceBoss = this.boss) {
+  placeBossBomb(x, y, sourceBoss = this.boss, rangeOverride = null) {
     const key = GridMath.key(x, y);
     if (!this.isBossAlive() || this.bombs.has(key) || !this.map.isEmpty(x, y)) return null;
 
     const aliveBoss = sourceBoss?.isAlive() ? sourceBoss : this.bosses.find((boss) => boss.isAlive()) || this.boss;
     if (!aliveBoss) return null;
-    const bomb = new Bomb(x, y, aliveBoss.getBombRange(), BossBombType, 'boss');
+    const bomb = new Bomb(x, y, rangeOverride || aliveBoss.getBombRange(), BossBombType, 'boss');
     this.bombs.set(key, bomb);
     return bomb;
   }
@@ -334,6 +334,23 @@ export class GameModel {
       broken.push(cell);
     });
     return broken;
+  }
+
+  destroyTilesInRadius(centerX, centerY, radius) {
+    const destroyed = [];
+
+    for (let y = centerY - radius; y <= centerY + radius; y++) {
+      for (let x = centerX - radius; x <= centerX + radius; x++) {
+        if (x <= 0 || y <= 0 || x >= this.map.grid[0].length - 1 || y >= this.map.grid.length - 1) continue;
+        if (Math.abs(x - centerX) + Math.abs(y - centerY) > radius) continue;
+        if (this.map.get(x, y) === TileType.EMPTY) continue;
+
+        this.map.set(x, y, TileType.EMPTY);
+        destroyed.push({ x, y });
+      }
+    }
+
+    return destroyed;
   }
 
   maybeDropItem(x, y) {

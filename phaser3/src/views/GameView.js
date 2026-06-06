@@ -79,6 +79,8 @@ export class GameView {
           if (this.model.level === 4) wall.setTint(0xd9d0a8);
           if (this.model.level === 5) wall.setTint(0x6fb34d);
           if (this.model.level === 6) wall.setTint(0x7fba4a);
+          wall.gridX = x;
+          wall.gridY = y;
           this.wallLayer.add(wall);
         }
         if (tile === TileType.CRATE) {
@@ -93,6 +95,8 @@ export class GameView {
         if (tile === TileType.WATER) {
           const water = this.scene.add.image(pos.x, pos.y, 'water').setDisplaySize(TILE, TILE).setTint(0x38bdf8);
           water.setDepth(this.depthForY(pos.y) - 1);
+          water.gridX = x;
+          water.gridY = y;
           this.wallLayer.add(water);
         }
       }
@@ -305,8 +309,17 @@ export class GameView {
     const pos = this.bossWorldPosition(boss);
     boss.sprite.setPosition(pos.x, pos.y);
     boss.sprite.setVisible(boss.isAlive());
+    this.setBossFlying(boss, boss.flying);
     this.updateSpriteDepth(boss.sprite);
     this.updateBossHud();
+  }
+
+  setBossFlying(boss, flying) {
+    if (!boss?.sprite) return;
+
+    boss.sprite.clearTint();
+    boss.sprite.setAlpha(flying ? 0.72 : 1);
+    if (flying) boss.sprite.setTint(0xbae6fd);
   }
 
   createBombSprite(bomb) {
@@ -383,6 +396,13 @@ export class GameView {
   removeCrate(x, y) {
     this.crateLayer.getChildren().forEach((crate) => {
       if (crate.gridX === x && crate.gridY === y) crate.destroy();
+    });
+  }
+
+  removeTile(x, y) {
+    this.removeCrate(x, y);
+    this.wallLayer.getChildren().forEach((tile) => {
+      if (tile.gridX === x && tile.gridY === y) tile.destroy();
     });
   }
 
