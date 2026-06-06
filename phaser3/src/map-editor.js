@@ -12,6 +12,7 @@ const mapNameInput = document.querySelector('#map-name');
 const savedMaps = document.querySelector('#saved-maps');
 const assetUpload = document.querySelector('#asset-upload');
 const uploadedAssets = document.querySelector('#uploaded-assets');
+const placedObjects = document.querySelector('#placed-objects');
 const StorageKey = 'bombOnline.savedMaps';
 const AssetStorageKey = 'bombOnline.uploadedAssets';
 
@@ -386,24 +387,28 @@ function placeObject(x, y) {
 }
 
 function eraseObjectAt(x, y) {
-  const before = objects.length;
-  objects = objects.filter((object) => {
-    const width = object.width || 1;
-    const height = object.height || 1;
-    return !(x >= object.x && x < object.x + width && y >= object.y && y < object.y + height);
-  });
+  const reversedIndex = [...objects].reverse().findIndex((object) => objectContainsCell(object, x, y));
+  if (reversedIndex === -1) {
+    setStatus('No object at this cell.');
+    return;
+  }
+
+  const objectIndex = objects.length - 1 - reversedIndex;
+  const [removed] = objects.splice(objectIndex, 1);
   renderBoard();
-  setStatus(before === objects.length ? 'No object at this cell.' : 'Object removed.');
+  setStatus(`${objectLabel(removed)} removed.`);
 }
 
 function renderObjects() {
   const assets = readUploadedAssets();
-  objects.forEach((object) => {
+  objects.forEach((object, index) => {
+    markObjectCells(object);
     const cell = board.querySelector(`[data-x="${object.x}"][data-y="${object.y}"]`);
     if (!cell) return;
 
     const marker = document.createElement('span');
     marker.className = `cell-object ${object.kind === 'boss' ? 'boss-object' : object.kind === 'enemy' ? 'enemy-object' : 'asset-object'}`;
+    marker.dataset.objectIndex = String(index);
     if (object.kind === 'enemy') {
       const image = document.createElement('img');
       image.src = mapTypeInput.value === 'forest' ? '../res/quaivat3new_down.png' : '../res/quaivat 3_down.png';
@@ -417,6 +422,68 @@ function renderObjects() {
     }
     cell.appendChild(marker);
   });
+  renderPlacedObjects();
+}
+
+function markObjectCells(object) {
+  const width = object.width || 1;
+  const height = object.height || 1;
+  for (let y = object.y; y < object.y + height; y++) {
+    for (let x = object.x; x < object.x + width; x++) {
+      const cell = board.querySelector(`[data-x="${x}"][data-y="${y}"]`);
+      if (!cell) continue;
+      cell.classList.add('cell-has-object');
+      cell.dataset.objectKind = object.kind;
+      cell.title = `${x},${y} ${grid[y][x]} - ${objectLabel(object)}`;
+    }
+  }
+}
+
+function renderPlacedObjects() {
+  placedObjects.innerHTML = '';
+  if (objects.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'empty-objects';
+    empty.textContent = 'No objects placed.';
+    placedObjects.appendChild(empty);
+    return;
+  }
+
+  objects.forEach((object, index) => {
+    const row = document.createElement('div');
+    row.className = 'placed-object';
+
+    const label = document.createElement('span');
+    label.textContent = objectLabel(object);
+
+    const deleteButton = document.createElement('button');
+    deleteButton.type = 'button';
+    deleteButton.textContent = 'Delete';
+    deleteButton.addEventListener('click', () => deleteObjectAtIndex(index));
+
+    row.append(label, deleteButton);
+    placedObjects.appendChild(row);
+  });
+}
+
+function deleteObjectAtIndex(index) {
+  const [removed] = objects.splice(index, 1);
+  renderBoard();
+  setStatus(`${objectLabel(removed)} removed.`);
+}
+
+function objectContainsCell(object, x, y) {
+  const width = object.width || 1;
+  const height = object.height || 1;
+  return x >= object.x && x < object.x + width && y >= object.y && y < object.y + height;
+}
+
+function objectLabel(object) {
+  if (!object) return 'Object';
+  const size = `${object.width || 1}x${object.height || 1}`;
+  if (object.kind === 'boss') return `Boss ${size} (${object.x},${object.y})`;
+  if (object.kind === 'enemy') return `Enemy (${object.x},${object.y})`;
+  return `${object.name || 'Asset'} (${object.x},${object.y})`;
 }
 
 function exportObjects() {
