@@ -477,6 +477,8 @@ export class GameController {
   handleEagleMove(boss, time) {
     if (!boss.nextFlightAt) boss.nextFlightAt = time + 10000;
 
+    if (boss.stunnedUntil && time < boss.stunnedUntil) return;
+
     if (!boss.flying && time >= boss.nextFlightAt) {
       boss.flying = true;
       boss.flightUntil = time + 4000;
@@ -568,6 +570,27 @@ export class GameController {
         if (boss.isAlive() && !boss.flying) this.throwEagleBombs(boss);
       });
     }
+  }
+
+  interruptEagleFlight(boss) {
+    if (!boss?.isEagle() || !boss.flying || !boss.isAlive()) return;
+
+    const releaseAt = this.scene.time.now + 1000;
+    boss.stunnedUntil = Math.max(boss.stunnedUntil || 0, releaseAt);
+    boss.nextStepAt = boss.stunnedUntil;
+    this.view.setBossFlying(boss, true);
+
+    this.scene.time.delayedCall(1000, () => {
+      if (!boss.isAlive()) return;
+      if (boss.stunnedUntil > this.scene.time.now) return;
+
+      boss.flying = false;
+      boss.nextFlightAt = this.scene.time.now + 10000;
+      boss.nextStepAt = this.scene.time.now + 500;
+      boss.stunnedUntil = 0;
+      this.view.setBossFlying(boss, false);
+      this.view.syncBoss(boss);
+    });
   }
 
   getChaseDirection(actor, time, cooldownMs, durationMs) {
@@ -781,6 +804,11 @@ export class GameController {
 
     if (owner !== 'boss' && !bomb?.damageDisabled) {
       this.model.killEnemiesIn(cells);
+    }
+    if (owner !== 'boss' && !bomb?.damageDisabled) {
+      this.model.getBossesIn(cells)
+        .filter((boss) => boss.isEagle() && boss.flying)
+        .forEach((boss) => this.interruptEagleFlight(boss));
     }
     const killedBosses = owner !== 'boss' && !bomb?.damageDisabled ? this.model.damageBossIn(cells) : [];
     killedBosses.forEach((boss) => this.view.showBossDead(boss));

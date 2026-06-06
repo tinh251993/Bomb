@@ -438,13 +438,7 @@ export class GameModel {
   damageBossIn(cells) {
     const killedBosses = [];
 
-    this.bosses.forEach((boss) => {
-      if (!boss.isAlive()) return;
-
-      const bossCells = new Set(boss.getOccupiedCells().map((cell) => GridMath.key(cell.x, cell.y)));
-      const hit = cells.some((cell) => bossCells.has(GridMath.key(cell.x, cell.y)));
-      if (!hit) return;
-
+    this.getBossesIn(cells).forEach((boss) => {
       const killed = boss.takeDamage(10);
       if (killed) {
         this.score += 1000;
@@ -456,6 +450,15 @@ export class GameModel {
 
     this.boss = this.bosses.find((boss) => boss.isAlive()) || null;
     return killedBosses;
+  }
+
+  getBossesIn(cells) {
+    return this.bosses.filter((boss) => {
+      if (!boss.isAlive()) return false;
+
+      const bossCells = new Set(boss.getOccupiedCells().map((cell) => GridMath.key(cell.x, cell.y)));
+      return cells.some((cell) => bossCells.has(GridMath.key(cell.x, cell.y)));
+    });
   }
 
   isBossAlive() {

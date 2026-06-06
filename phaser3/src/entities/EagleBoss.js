@@ -8,6 +8,7 @@ export class EagleBoss extends Boss {
     this.flying = false;
     this.nextFlightAt = 0;
     this.flightUntil = 0;
+    this.stunnedUntil = 0;
     this.bombRange = 4;
   }
 
