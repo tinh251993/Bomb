@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bomb Online - Map Editor</title>
+  <link rel="stylesheet" href="src/map-editor.css">
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div>
+        <h1>Map Editor</h1>
+        <p>26 x 13 layout for TileMap.js</p>
+      </div>
+      <a href="index.html">Back to game</a>
+    </header>
+
+    <section class="toolbar" aria-label="Tile tools">
+      <button class="tool active" data-tile="."><span class="swatch floor"></span>Floor</button>
+      <button class="tool" data-tile="#"><span class="swatch wall"></span>Wall</button>
+      <button class="tool" data-tile="C"><span class="swatch crate"></span>Box</button>
+      <button class="tool" data-tile="W"><span class="swatch water"></span>Water</button>
+    </section>
+
+    <section class="workspace">
+      <div class="board-wrap">
+        <div id="board" class="board" aria-label="Map grid"></div>
+      </div>
+
+      <aside class="panel">
+        <div class="actions">
+          <button id="fill-border">Fill Border</button>
+          <button id="clear-map">Clear</button>
+          <button id="random-boxes">Random Boxes</button>
+          <button id="copy-layout">Copy Layout</button>
+          <button id="import-layout">Import Layout</button>
+        </div>
+
+        <label for="layout-output">Layout</label>
+        <textarea id="layout-output" spellcheck="false"></textarea>
+        <p id="status" class="status">Ready.</p>
+      </aside>
+    </section>
+  </main>
+
+  <script type="module" src="src/map-editor.js"></script>
+</body>
+</html>
