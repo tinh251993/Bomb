@@ -3,10 +3,11 @@ import { Character } from './Character.js';
 
 export class Player extends Character {
   constructor(x, y, character = Characters[0], bombType = BombTypes[0]) {
-    super(x, y, 170);
+    const stats = character.stats || {};
+    super(x, y, stats.speed || 170);
     this.character = character;
-    this.maxBombs = 1;
-    this.bombRange = 2;
+    this.maxBombs = stats.maxBombs || 1;
+    this.bombRange = stats.bombRange || 2;
     this.currentBombType = bombType;
     this.status = 'alive';
     this.downedUntil = 0;

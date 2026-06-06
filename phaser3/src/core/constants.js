@@ -84,6 +84,11 @@ export const Characters = Object.freeze([
     id: 'bebong',
     name: 'Be Bong',
     card: '../res/User/opbebong.png',
+    stats: {
+      maxBombs: 1,
+      speed: 170,
+      bombRange: 3
+    },
     sprites: {
       down: '../res/bebong_down.png',
       up: '../res/bebong_up.png',
@@ -96,6 +101,11 @@ export const Characters = Object.freeze([
     id: 'khokho',
     name: 'Kho Kho',
     card: '../res/User/opkhokho.png',
+    stats: {
+      maxBombs: 2,
+      speed: 160,
+      bombRange: 2
+    },
     sprites: {
       down: '../res/khokho_down.png',
       up: '../res/khokho_up.png',
@@ -108,6 +118,11 @@ export const Characters = Object.freeze([
     id: 'tiachop',
     name: 'Tia Chop',
     card: '../res/User/optiachop.png',
+    stats: {
+      maxBombs: 1,
+      speed: 190,
+      bombRange: 1
+    },
     sprites: {
       down: '../res/User/tiachop_down.png',
       up: '../res/User/tiachop_up.png',
