@@ -350,7 +350,11 @@ export class GameController {
         enemy.chooseDirection(choices);
       }
 
-      enemy.setGridPosition(enemy.gridX + enemy.dir.x, enemy.gridY + enemy.dir.y);
+      const nextX = enemy.gridX + enemy.dir.x;
+      const nextY = enemy.gridY + enemy.dir.y;
+      if (!this.model.isWalkable(nextX, nextY)) return;
+
+      enemy.setGridPosition(nextX, nextY);
       this.view.moveEnemy(enemy);
     });
   }
@@ -442,7 +446,6 @@ export class GameController {
   canActorMoveTo(startX, startY, nextX, nextY, targetX, targetY) {
     const boss = this.model.bosses.find((item) => item.gridX === startX && item.gridY === startY);
     if (boss) return this.model.canBossOccupy(nextX, nextY, boss);
-    if (nextX === targetX && nextY === targetY) return true;
     return this.model.isWalkable(nextX, nextY);
   }
 
