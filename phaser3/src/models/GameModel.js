@@ -11,21 +11,21 @@ const Phaser = window.Phaser;
 const MAX_LEVEL = 6;
 const SHARED_PLAYER_SPAWN = { x: 1, y: 1 };
 const ENEMY_SPAWN_HINTS = [
+  { x: 24, y: 11 },
+  { x: 22, y: 1 },
+  { x: 18, y: 9 },
+  { x: 24, y: 5 },
   { x: 13, y: 11 },
-  { x: 11, y: 1 },
-  { x: 7, y: 9 },
-  { x: 13, y: 5 },
-  { x: 3, y: 11 },
-  { x: 9, y: 3 },
+  { x: 20, y: 3 },
   { x: 5, y: 7 },
-  { x: 11, y: 9 },
+  { x: 22, y: 9 },
   { x: 3, y: 5 },
   { x: 7, y: 11 },
-  { x: 13, y: 9 },
+  { x: 16, y: 9 },
   { x: 9, y: 7 },
   { x: 5, y: 1 },
   { x: 1, y: 7 },
-  { x: 11, y: 3 },
+  { x: 18, y: 3 },
   { x: 7, y: 5 }
 ];
 const LEVEL_THREE_ENEMY_SPAWN_HINTS = [
