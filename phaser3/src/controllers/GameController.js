@@ -103,7 +103,7 @@ export class GameController {
     this.scene.input.on('pointerdown', () => this.scene.game.canvas.focus());
     this.bindAudioResumeHandlers();
     this.scene.input.keyboard.on('keydown-SPACE', () => this.placeBomb());
-    this.scene.input.keyboard.on('keydown-R', () => this.scene.scene.restart());
+    this.scene.input.keyboard.on('keydown-R', () => this.restartCurrentLevel());
     this.scene.input.keyboard.on('keydown-ONE', () => this.selectBombType(0));
     this.scene.input.keyboard.on('keydown-TWO', () => this.selectBombType(1));
     this.scene.input.keyboard.on('keydown-THREE', () => this.selectBombType(2));
@@ -204,6 +204,25 @@ export class GameController {
     }
 
     this.scene.sound.add('game-music', { loop: true, volume: 0.42 }).play();
+  }
+
+  restartCurrentLevel() {
+    const player = this.model.player;
+    this.scene.scene.restart({
+      ...this.scene.launchData,
+      level: this.model.level,
+      score: this.model.score,
+      levelDeathCount: this.model.levelDeathCount,
+      playerStats: {
+        maxBombs: player.maxBombs,
+        bombRange: player.bombRange,
+        speed: player.speed,
+        currentBombType: player.currentBombType,
+        infiniteLives: this.model.infiniteLives,
+        levelDeathCount: this.model.levelDeathCount
+      },
+      infiniteLives: this.model.infiniteLives
+    });
   }
 
   update(time, delta) {

@@ -80,7 +80,7 @@ export class GameModel {
     this.playerPassThroughBombs = new Set();
     this.items = new Map();
     this.score = options.score || 0;
-    this.levelDeathCount = 0;
+    this.levelDeathCount = Math.max(0, Number(options.levelDeathCount || options.playerStats?.levelDeathCount || 0));
     this.gameOver = false;
     this.won = false;
     this.spawnEnemies();
