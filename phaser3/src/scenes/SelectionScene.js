@@ -1,5 +1,6 @@
-import { BombTypes, Characters, HEIGHT, LevelOptions, WIDTH } from '../core/constants.js';
+import { BombTypes, Characters, COLS, HEIGHT, LevelOptions, ROWS, TileType, WIDTH } from '../core/constants.js';
 import { createBombSheetTextures } from '../core/BombTextureFactory.js';
+import { TileMap } from '../models/TileMap.js';
 import { multiplayer } from '../services/MultiplayerService.js';
 
 const Phaser = window.Phaser;
@@ -18,6 +19,8 @@ export class SelectionScene extends Phaser.Scene {
     this.bombCards = [];
     this.levelCards = [];
     this.levelGroupButtons = [];
+    this.mapPreviewGraphics = null;
+    this.mapPreviewTitle = null;
     this.activeLevelGroup = 'pirate';
     this.isMultiplayer = false;
     this.roomText = null;
@@ -51,6 +54,7 @@ export class SelectionScene extends Phaser.Scene {
     this.addCharacterPicker();
     this.addBombPicker();
     this.addLevelPicker();
+    this.addMapPreview();
     this.addStartButton();
     this.addRoomStatus();
     this.refreshSelection();
@@ -152,8 +156,8 @@ export class SelectionScene extends Phaser.Scene {
     });
 
     this.mapOptions = this.createMapOptions();
-    this.mapSelect = this.add.dom(WIDTH / 2, 506, 'select', [
-      'width: 420px',
+    this.mapSelect = this.add.dom(344, 520, 'select', [
+      'width: 520px',
       'height: 44px',
       'font: 18px Arial',
       'border: 3px solid #334155',
@@ -172,6 +176,21 @@ export class SelectionScene extends Phaser.Scene {
       this.selectMapOption(this.mapSelect.node.value);
     });
     this.loadServerMaps();
+  }
+
+  addMapPreview() {
+    const panelX = 948;
+    const panelY = 286;
+    this.add.rectangle(panelX, panelY, 520, 350, 0x0f172a, 0.9)
+      .setStrokeStyle(3, 0x334155);
+    this.mapPreviewTitle = this.add.text(panelX, 126, '', {
+      fontFamily: 'Arial',
+      fontSize: '18px',
+      color: '#f8fafc',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+    this.mapPreviewGraphics = this.add.graphics();
+    this.updateMapPreview();
   }
 
   renderMapOptions() {
@@ -272,6 +291,46 @@ export class SelectionScene extends Phaser.Scene {
     this.selectedLevel = levelOption;
     this.selectedCustomMap = option.customMap;
     this.refreshSelection();
+  }
+
+  updateMapPreview() {
+    if (!this.mapPreviewGraphics) return;
+
+    const map = new TileMap(this.selectedLevel.level, 'preview', this.selectedCustomMap?.layout || null);
+    const cell = 16;
+    const startX = 740;
+    const startY = 158;
+    const colors = {
+      [TileType.EMPTY]: 0x8fbf45,
+      [TileType.WALL]: 0xd9e3e6,
+      [TileType.CRATE]: 0xd99a38,
+      [TileType.WATER]: 0x38bdf8
+    };
+
+    this.mapPreviewGraphics.clear();
+    this.mapPreviewGraphics.fillStyle(0x07111f, 1);
+    this.mapPreviewGraphics.fillRoundedRect(startX - 8, startY - 8, COLS * cell + 16, ROWS * cell + 16, 6);
+
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        const tile = map.get(x, y);
+        this.mapPreviewGraphics.fillStyle(colors[tile] || colors[TileType.EMPTY], 1);
+        this.mapPreviewGraphics.fillRect(startX + x * cell, startY + y * cell, cell - 1, cell - 1);
+      }
+    }
+
+    (this.selectedCustomMap?.objects || []).forEach((object) => {
+      if (object.kind === 'enemy') {
+        this.mapPreviewGraphics.fillStyle(0xef4444, 1);
+        this.mapPreviewGraphics.fillCircle(startX + object.x * cell + cell / 2, startY + object.y * cell + cell / 2, 5);
+      }
+      if (object.kind === 'boss') {
+        this.mapPreviewGraphics.fillStyle(0x991b1b, 1);
+        this.mapPreviewGraphics.fillRect(startX + object.x * cell, startY + object.y * cell, cell * 2 - 1, cell * 2 - 1);
+      }
+    });
+
+    this.mapPreviewTitle?.setText(`Preview: ${this.selectedMapName()}`);
   }
 
   mapValue() {
@@ -378,6 +437,8 @@ export class SelectionScene extends Phaser.Scene {
       this.mapSelect.node.value = this.mapValue();
       this.mapSelect.node.disabled = this.isMultiplayer && !multiplayer.isHost();
     }
+
+    this.updateMapPreview();
 
     if (this.isMultiplayer) {
       this.actionLabel?.setText(multiplayer.isHost() ? 'START ROOM' : 'READY');
