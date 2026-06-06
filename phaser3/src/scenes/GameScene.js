@@ -28,6 +28,7 @@ export class GameScene extends Phaser.Scene {
       playerCount: data.room?.players?.length || 1,
       mapSeed: data.room?.code || data.mapSeed || 'solo',
       level: data.level || 1,
+      customMap: data.customMap || data.room?.customMap || null,
       score: data.score || 0,
       playerStats: data.playerStats
     });

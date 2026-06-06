@@ -10,6 +10,9 @@ export class SelectionScene extends Phaser.Scene {
     this.selectedCharacter = Characters[0];
     this.selectedBombType = BombTypes[0];
     this.selectedLevel = LevelOptions[0];
+    this.selectedCustomMap = null;
+    this.mapOptions = [];
+    this.mapSelect = null;
     this.characterCards = [];
     this.bombCards = [];
     this.levelCards = [];
@@ -147,44 +150,30 @@ export class SelectionScene extends Phaser.Scene {
       fontStyle: 'bold'
     });
 
-    this.addLevelGroupButton(116, 440, 'pirate', 'Pirate');
-    this.addLevelGroupButton(232, 440, 'forest', 'Forest');
-
-    const gap = 156;
-    LevelOptions.forEach((option, index) => {
-      const group = this.levelGroupFor(option);
-      const groupOptions = LevelOptions.filter((item) => this.levelGroupFor(item) === group);
-      const groupIndex = groupOptions.findIndex((item) => item.level === option.level);
-      const startX = WIDTH / 2 - ((groupOptions.length - 1) * gap) / 2;
-      const x = startX + groupIndex * gap;
-      const card = this.add.container(x, 510);
-      const color = option.level >= 4 ? 0x166534 : 0x0f3b57;
-      const panel = this.add.rectangle(0, 0, 116, 112, color, 0.9)
-        .setStrokeStyle(3, 0x334155);
-      const title = this.add.text(0, -24, option.name, {
-        fontFamily: 'Arial',
-        fontSize: '16px',
-        color: '#f8fafc',
-        fontStyle: 'bold'
-      }).setOrigin(0.5);
-      const theme = this.add.text(0, 18, option.theme, {
-        fontFamily: 'Arial',
-        fontSize: '13px',
-        color: '#cbd5e1',
-        align: 'center',
-        wordWrap: { width: 98 }
-      }).setOrigin(0.5);
-
-      card.add([panel, title, theme]);
-      card.setSize(116, 112);
-      card.setInteractive({ useHandCursor: true });
-      card.on('pointerdown', () => {
-        if (this.isMultiplayer && !multiplayer.isHost()) return;
-        this.activeLevelGroup = this.levelGroupFor(option);
-        this.selectedLevel = option;
-        this.refreshSelection();
-      });
-      this.levelCards.push({ option, card, panel, baseColor: color });
+    this.mapOptions = this.createMapOptions();
+    this.mapSelect = this.add.dom(WIDTH / 2, 506, 'select', [
+      'width: 420px',
+      'height: 44px',
+      'font: 18px Arial',
+      'border: 3px solid #334155',
+      'border-radius: 6px',
+      'background: #020617',
+      'color: #f8fafc',
+      'outline: none',
+      'padding: 0 10px'
+    ].join(';'));
+    this.mapOptions.forEach((option) => {
+      const item = document.createElement('option');
+      item.value = option.value;
+      item.textContent = option.label;
+      this.mapSelect.node.appendChild(item);
+    });
+    this.mapSelect.node.addEventListener('change', () => {
+      if (this.isMultiplayer && !multiplayer.isHost()) {
+        this.mapSelect.node.value = this.mapValue();
+        return;
+      }
+      this.selectMapOption(this.mapSelect.node.value);
     });
   }
 
@@ -215,6 +204,67 @@ export class SelectionScene extends Phaser.Scene {
     return option.level <= 3 ? 'pirate' : 'forest';
   }
 
+  createMapOptions() {
+    const builtIn = LevelOptions.map((option) => ({
+      value: `level:${option.level}`,
+      label: `${option.theme} - ${option.name}`,
+      level: option.level,
+      customMap: null
+    }));
+    const saved = this.readSavedMaps().map((map, index) => ({
+      value: `custom:${index}`,
+      label: `${map.type} - ${map.name}`,
+      level: map.type === 'forest' ? 4 : 1,
+      customMap: map
+    }));
+    return [...builtIn, ...saved];
+  }
+
+  readSavedMaps() {
+    try {
+      const maps = JSON.parse(localStorage.getItem('bombOnline.savedMaps') || '[]');
+      return Array.isArray(maps) ? maps.filter((map) => Array.isArray(map.layout)) : [];
+    } catch (_error) {
+      return [];
+    }
+  }
+
+  selectMapOption(value) {
+    const option = this.mapOptions.find((item) => item.value === value) || this.mapOptions[0];
+    const levelOption = LevelOptions.find((item) => item.level === option.level) || LevelOptions[0];
+    this.selectedLevel = levelOption;
+    this.selectedCustomMap = option.customMap;
+    this.refreshSelection();
+  }
+
+  mapValue() {
+    if (this.selectedCustomMap) {
+      const customOption = this.mapOptions.find((option) => {
+        return option.customMap
+          && option.customMap.type === this.selectedCustomMap.type
+          && option.customMap.name === this.selectedCustomMap.name;
+      });
+      return customOption?.value || `level:${this.selectedLevel.level}`;
+    }
+    return `level:${this.selectedLevel.level}`;
+  }
+
+  selectedCustomMapPayload() {
+    if (!this.selectedCustomMap) return null;
+    return {
+      type: this.selectedCustomMap.type,
+      name: this.selectedCustomMap.name,
+      layout: this.selectedCustomMap.layout,
+      objects: this.selectedCustomMap.objects || []
+    };
+  }
+
+  selectedMapName() {
+    return this.selectedCustomMap
+      ? `${this.selectedCustomMap.type}/${this.selectedCustomMap.name}`
+      : this.selectedLevel.name;
+  }
+
   addStartButton() {
     const button = this.add.container(WIDTH / 2, HEIGHT - 44);
     const bg = this.add.rectangle(0, 0, 210, 54, 0x16a34a, 1)
@@ -240,7 +290,8 @@ export class SelectionScene extends Phaser.Scene {
       this.scene.start('GameScene', {
         character: this.selectedCharacter,
         bombType: this.selectedBombType,
-        level: this.selectedLevel.level
+        level: this.selectedLevel.level,
+        customMap: this.selectedCustomMapPayload()
       });
     });
   }
@@ -286,6 +337,11 @@ export class SelectionScene extends Phaser.Scene {
       panel.setFillStyle(selected ? 0x1f2937 : baseColor, selected ? 0.98 : 0.9);
     });
 
+    if (this.mapSelect?.node) {
+      this.mapSelect.node.value = this.mapValue();
+      this.mapSelect.node.disabled = this.isMultiplayer && !multiplayer.isHost();
+    }
+
     if (this.isMultiplayer) {
       this.actionLabel?.setText(multiplayer.isHost() ? 'START ROOM' : 'READY');
     }
@@ -293,7 +349,12 @@ export class SelectionScene extends Phaser.Scene {
 
   async submitMultiplayerSelection() {
     try {
-      await multiplayer.submitSelection(this.selectedCharacter.id, this.selectedBombType.id, this.selectedLevel.level);
+      await multiplayer.submitSelection(
+        this.selectedCharacter.id,
+        this.selectedBombType.id,
+        this.selectedLevel.level,
+        this.selectedCustomMapPayload()
+      );
       if (multiplayer.isHost()) {
         const room = await multiplayer.startRoom();
         this.startLoading(room);
@@ -319,7 +380,8 @@ export class SelectionScene extends Phaser.Scene {
       multiplayer: true,
       room,
       playerId: multiplayer.playerId,
-      level: room.selectedLevel || this.selectedLevel.level
+      level: room.selectedLevel || this.selectedLevel.level,
+      customMap: room.customMap || null
     });
   }
 
@@ -331,7 +393,8 @@ export class SelectionScene extends Phaser.Scene {
       multiplayer: true,
       room,
       playerId: multiplayer.playerId,
-      level: room.selectedLevel || this.selectedLevel.level
+      level: room.selectedLevel || this.selectedLevel.level,
+      customMap: room.customMap || this.selectedCustomMapPayload()
     });
   }
 
@@ -340,8 +403,9 @@ export class SelectionScene extends Phaser.Scene {
     if (!room || !this.roomText) return;
 
     const roomLevel = LevelOptions.find((option) => option.level === room.selectedLevel);
-    if (roomLevel && roomLevel.level !== this.selectedLevel.level) {
+    if (roomLevel && (roomLevel.level !== this.selectedLevel.level || room.customMap !== this.selectedCustomMap)) {
       this.selectedLevel = roomLevel;
+      this.selectedCustomMap = room.customMap || null;
       this.activeLevelGroup = this.levelGroupFor(roomLevel);
       this.refreshSelection();
     }
@@ -352,7 +416,7 @@ export class SelectionScene extends Phaser.Scene {
       return `${host} ${player.name} ${mine} - ${player.ready ? 'ready' : 'choosing'}`;
     });
     const ping = this.latencyMs === null ? 'Ping -- ms' : `Ping ${this.latencyMs} ms`;
-    this.roomText.setText(`Room ${room.code}   ${ping}   Map ${this.selectedLevel.name}\n${lines.join('   ')}`);
+    this.roomText.setText(`Room ${room.code}   ${ping}   Map ${room.customMap?.name || this.selectedMapName()}\n${lines.join('   ')}`);
     this.actionLabel?.setText(multiplayer.isHost() ? 'START ROOM' : 'READY');
   }
 

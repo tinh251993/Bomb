@@ -81,13 +81,15 @@ const LEVEL_SIX_LAYOUT = [
 ];
 
 export class TileMap {
-  constructor(level = 1, seed = 'solo') {
+  constructor(level = 1, seed = 'solo', customLayout = null) {
     this.level = level;
     this.seed = seed;
+    this.customLayout = customLayout;
     this.grid = this.buildGrid();
   }
 
   buildGrid() {
+    if (this.customLayout) return this.buildFromLayout(this.customLayout);
     if (this.level === 2) return this.buildFromLayout(LEVEL_TWO_LAYOUT);
     if (this.level === 3) return this.buildFromLayout(LEVEL_THREE_LAYOUT);
     if (this.level === 4) return this.buildFromLayout(LEVEL_FOUR_LAYOUT);

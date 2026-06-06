@@ -51,10 +51,12 @@ export class GameModel {
     this.selectedBombType = options.bombType || BombTypes[0];
     this.playerIndex = options.playerIndex || 0;
     this.playerCount = Math.max(1, options.playerCount || 1);
+    this.customMap = options.customMap || null;
+    this.mapType = this.customMap?.type || (Number(options.level || 1) >= 4 ? 'forest' : 'pirate');
     this.level = Math.min(MAX_LEVEL, Math.max(1, options.level || 1));
     this.mapSeed = options.mapSeed || 'solo';
     const spawn = SHARED_PLAYER_SPAWN;
-    this.map = new TileMap(this.level, this.mapSeed);
+    this.map = new TileMap(this.level, this.mapSeed, this.customMap?.layout);
     this.player = new Player(spawn.x, spawn.y, this.selectedCharacter, this.selectedBombType);
     this.applyPlayerStats(options.playerStats);
     this.infiniteLives = Boolean(options.infiniteLives || options.playerStats?.infiniteLives);
@@ -78,12 +80,20 @@ export class GameModel {
   }
 
   spawnEnemies() {
+    const customBoss = this.customMap?.objects?.find((object) => object.kind === 'boss');
+    if (customBoss) {
+      this.spawnBoss({ x: customBoss.x, y: customBoss.y });
+    }
     if (this.level === 3) {
+      if (this.boss) {
+        this.spawnLevelThreeEnemies();
+        return;
+      }
       this.spawnBoss();
       this.spawnLevelThreeEnemies();
       return;
     }
-    if (this.level === 6) {
+    if (this.level === 6 && !this.boss) {
       this.spawnBoss(FOREST_BOSS_SPAWN);
     }
 

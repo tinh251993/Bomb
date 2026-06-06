@@ -116,7 +116,7 @@ export class GameView {
   }
 
   drawEnemies() {
-    const texture = this.model.level >= 4 ? 'forest-enemy' : 'enemy';
+    const texture = this.model.mapType === 'forest' ? 'forest-enemy' : 'enemy';
     this.model.enemies.forEach((enemy) => {
       const pos = GridMath.toWorld(enemy.gridX, enemy.gridY);
       const sprite = this.scene.add.sprite(pos.x, pos.y, texture).setDisplaySize(42, 42);

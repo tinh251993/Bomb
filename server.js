@@ -29,6 +29,7 @@ io.on('connection', (socket) => {
       started: false,
       phase: 'lobby',
       selectedLevel: 1,
+      customMap: null,
       loadingPlayers: new Set(),
       inGamePlayers: new Set(),
       cleanupTimer: null,
@@ -58,7 +59,7 @@ io.on('connection', (socket) => {
     reply?.({ ok: true, room: serializeRoom(room), playerId: socket.id });
   });
 
-  socket.on('room:selection', ({ characterId, bombTypeId, level }, reply) => {
+  socket.on('room:selection', ({ characterId, bombTypeId, level, customMap }, reply) => {
     const room = getSocketRoom(socket);
     if (!room) return reply?.({ ok: false, message: 'Not in a room.' });
 
@@ -70,6 +71,7 @@ io.on('connection', (socket) => {
     player.ready = true;
     if (room.hostId === socket.id) {
       room.selectedLevel = Math.min(6, Math.max(1, Number(level) || room.selectedLevel || 1));
+      room.customMap = sanitizeCustomMap(customMap);
     }
     emitRoom(room);
     reply?.({ ok: true, room: serializeRoom(room) });
@@ -238,6 +240,29 @@ function cleanupRoomIfGameEmpty(room) {
   }, 5000);
 }
 
+function sanitizeCustomMap(customMap) {
+  if (!customMap || !Array.isArray(customMap.layout)) return null;
+
+  const layout = customMap.layout.slice(0, 13).map((row) => {
+    return String(row || '').slice(0, 26);
+  });
+  if (layout.length !== 13) return null;
+
+  return {
+    type: customMap.type === 'forest' ? 'forest' : 'pirate',
+    name: String(customMap.name || 'custom').slice(0, 40),
+    layout,
+    objects: Array.isArray(customMap.objects) ? customMap.objects.slice(0, 32).map((object) => ({
+      kind: object.kind,
+      x: Number(object.x) || 0,
+      y: Number(object.y) || 0,
+      width: Number(object.width) || 1,
+      height: Number(object.height) || 1,
+      name: object.name ? String(object.name).slice(0, 80) : undefined
+    })) : []
+  };
+}
+
 function serializeRoom(room) {
   return {
     code: room.code,
@@ -245,6 +270,7 @@ function serializeRoom(room) {
     started: room.started,
     phase: room.phase,
     selectedLevel: room.selectedLevel || 1,
+    customMap: room.customMap || null,
     loadingPlayerIds: Array.from(room.loadingPlayers || []),
     inGamePlayerIds: Array.from(room.inGamePlayers || []),
     players: Array.from(room.players.values()).map((player) => ({
