@@ -501,7 +501,9 @@ export class GameController {
 
     if (!this.isAuthoritativeHost()) return;
 
-    this.model.killEnemiesIn(cells);
+    if (owner !== 'boss') {
+      this.model.killEnemiesIn(cells);
+    }
     const bossWasKilled = owner !== 'boss' && this.model.damageBossIn(cells);
     if (bossWasKilled) {
       this.view.showBossDead();
