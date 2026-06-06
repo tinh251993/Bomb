@@ -81,8 +81,7 @@ function setStatus(message) {
 }
 
 function parseLayout(text) {
-  const matches = Array.from(text.matchAll(/'([^']+)'|"([^"]+)"/g));
-  const rows = matches.map((match) => match[1] || match[2]);
+  const rows = extractLayoutRows(text);
   if (rows.length !== ROWS) {
     throw new Error(`Need ${ROWS} rows, found ${rows.length}.`);
   }
@@ -94,6 +93,24 @@ function parseLayout(text) {
       return Tiles.has(tile) ? tile : '.';
     });
   });
+}
+
+function extractLayoutRows(text) {
+  const quotedRows = Array.from(text.matchAll(/'([^']+)'|"([^"]+)"/g))
+    .map((match) => match[1] || match[2])
+    .filter(isLayoutRow);
+  if (quotedRows.length >= ROWS) return quotedRows.slice(0, ROWS);
+
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim().replace(/^['"]|['"],?$/g, ''))
+    .filter(isLayoutRow)
+    .slice(0, ROWS);
+}
+
+function isLayoutRow(row) {
+  if (row.length < COLS) return false;
+  return row.slice(0, COLS).split('').every((tile) => Tiles.has(tile) || tile === ' ');
 }
 
 function fillBorder() {
@@ -138,12 +155,73 @@ async function copyLayout() {
 
 function importLayout() {
   try {
+    const importedObjects = parseObjects(output.value);
     grid = parseLayout(output.value);
+    objects = importedObjects || [];
     renderBoard();
-    setStatus('Layout imported.');
+    setStatus(importedObjects ? 'Layout and objects imported.' : 'Layout imported.');
   } catch (error) {
     setStatus(error.message);
   }
+}
+
+function parseObjects(text) {
+  const assignIndex = text.search(/\bconst\s+[A-Z0-9_]+_OBJECTS\s*=/);
+  if (assignIndex === -1) return null;
+
+  const startIndex = text.indexOf('[', assignIndex);
+  if (startIndex === -1) return null;
+
+  const jsonText = readBalancedArray(text, startIndex);
+  if (!jsonText) return null;
+
+  try {
+    const parsed = JSON.parse(jsonText);
+    return Array.isArray(parsed) ? parsed.filter(isValidObject) : null;
+  } catch (_error) {
+    return null;
+  }
+}
+
+function readBalancedArray(text, startIndex) {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let index = startIndex; index < text.length; index++) {
+    const char = text[index];
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === '\\') {
+        escaped = true;
+      } else if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (char === '"') {
+      inString = true;
+      continue;
+    }
+
+    if (char === '[') depth++;
+    if (char === ']') {
+      depth--;
+      if (depth === 0) return text.slice(startIndex, index + 1);
+    }
+  }
+
+  return null;
+}
+
+function isValidObject(object) {
+  return object
+    && ['boss', 'enemy', 'asset'].includes(object.kind)
+    && Number.isInteger(object.x)
+    && Number.isInteger(object.y);
 }
 
 function layoutConstName() {
