@@ -23,6 +23,7 @@ export class GameController {
     this.unsubscribeLatency = null;
     this.remoteStatuses = new Map();
     this.lastReviveRequestAt = 0;
+    this.audioResumeHandler = null;
   }
 
   configureMultiplayer(config) {
@@ -100,6 +101,7 @@ export class GameController {
     this.scene.game.canvas.setAttribute('tabindex', '0');
     this.scene.game.canvas.focus();
     this.scene.input.on('pointerdown', () => this.scene.game.canvas.focus());
+    this.bindAudioResumeHandlers();
     this.scene.input.keyboard.on('keydown-SPACE', () => this.placeBomb());
     this.scene.input.keyboard.on('keydown-R', () => this.scene.scene.restart());
     this.scene.input.keyboard.on('keydown-ONE', () => this.selectBombType(0));
@@ -118,6 +120,42 @@ export class GameController {
       this.requestKillAllEnemies();
     });
     this.playGameMusic();
+  }
+
+  bindAudioResumeHandlers() {
+    this.audioResumeHandler = () => this.ensureAudioActive();
+    document.addEventListener('visibilitychange', this.audioResumeHandler);
+    window.addEventListener('focus', this.audioResumeHandler);
+    this.scene.input.on('pointerdown', this.audioResumeHandler);
+    this.scene.input.keyboard.on('keydown', this.audioResumeHandler);
+    this.scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.unbindAudioResumeHandlers());
+  }
+
+  unbindAudioResumeHandlers() {
+    if (!this.audioResumeHandler) return;
+
+    document.removeEventListener('visibilitychange', this.audioResumeHandler);
+    window.removeEventListener('focus', this.audioResumeHandler);
+    this.scene.input.off('pointerdown', this.audioResumeHandler);
+    this.scene.input.keyboard.off('keydown', this.audioResumeHandler);
+    this.audioResumeHandler = null;
+  }
+
+  ensureAudioActive() {
+    const sound = this.scene.sound;
+    if (sound.context?.state === 'suspended') {
+      sound.context.resume().catch(() => {});
+    }
+
+    const music = sound.get('game-music');
+    if (!music) return;
+    if (music.isPaused) {
+      music.resume();
+      return;
+    }
+    if (!music.isPlaying) {
+      music.play({ loop: true, volume: 0.42 });
+    }
   }
 
   enableInfiniteLives() {

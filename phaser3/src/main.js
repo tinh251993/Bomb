@@ -17,6 +17,7 @@ const config = {
   pixelArt: false,
   roundPixels: true,
   transparent: false,
+  disableVisibilityChange: true,
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
