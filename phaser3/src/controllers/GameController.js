@@ -24,6 +24,9 @@ export class GameController {
     this.remoteStatuses = new Map();
     this.lastReviveRequestAt = 0;
     this.audioResumeHandler = null;
+    this.mobileInput = { direction: null };
+    this.mobileControlHandlers = [];
+    this.mobileControlsRoot = null;
   }
 
   configureMultiplayer(config) {
@@ -119,7 +122,67 @@ export class GameController {
       event.preventDefault();
       this.requestKillAllEnemies();
     });
+    this.bindMobileControls();
     this.playGameMusic();
+  }
+
+  bindMobileControls() {
+    this.mobileControlsRoot = document.querySelector('#mobile-controls');
+    this.mobileControlsRoot?.classList.add('active');
+    const controls = Array.from(document.querySelectorAll('[data-mobile-action]'));
+    if (controls.length === 0) return;
+
+    const directionMap = {
+      left: Direction.LEFT,
+      right: Direction.RIGHT,
+      up: Direction.UP,
+      down: Direction.DOWN
+    };
+    const setPressed = (button, pressed) => button.classList.toggle('pressed', pressed);
+
+    controls.forEach((button) => {
+      const action = button.dataset.mobileAction;
+      const onDown = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        this.scene.game.canvas.focus();
+        this.ensureAudioActive();
+        setPressed(button, true);
+
+        if (action === 'bomb') {
+          this.placeBomb();
+          return;
+        }
+        this.mobileInput.direction = directionMap[action] || null;
+      };
+      const onUp = (event) => {
+        event.preventDefault();
+        setPressed(button, false);
+        if (this.mobileInput.direction === directionMap[action]) this.mobileInput.direction = null;
+      };
+
+      button.addEventListener('pointerdown', onDown);
+      button.addEventListener('pointerup', onUp);
+      button.addEventListener('pointercancel', onUp);
+      button.addEventListener('pointerleave', onUp);
+      this.mobileControlHandlers.push({ button, onDown, onUp });
+    });
+
+    this.scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.unbindMobileControls());
+  }
+
+  unbindMobileControls() {
+    this.mobileControlHandlers.forEach(({ button, onDown, onUp }) => {
+      button.removeEventListener('pointerdown', onDown);
+      button.removeEventListener('pointerup', onUp);
+      button.removeEventListener('pointercancel', onUp);
+      button.removeEventListener('pointerleave', onUp);
+      button.classList.remove('pressed');
+    });
+    this.mobileControlHandlers = [];
+    this.mobileInput.direction = null;
+    this.mobileControlsRoot?.classList.remove('active');
+    this.mobileControlsRoot = null;
   }
 
   bindAudioResumeHandlers() {
@@ -348,6 +411,10 @@ export class GameController {
     if (this.cursors.right.isDown || this.keys.d.isDown) return { dx: 1, dy: 0, direction: Direction.RIGHT };
     if (this.cursors.up.isDown || this.keys.w.isDown) return { dx: 0, dy: -1, direction: Direction.UP };
     if (this.cursors.down.isDown || this.keys.s.isDown) return { dx: 0, dy: 1, direction: Direction.DOWN };
+    if (this.mobileInput.direction === Direction.LEFT) return { dx: -1, dy: 0, direction: Direction.LEFT };
+    if (this.mobileInput.direction === Direction.RIGHT) return { dx: 1, dy: 0, direction: Direction.RIGHT };
+    if (this.mobileInput.direction === Direction.UP) return { dx: 0, dy: -1, direction: Direction.UP };
+    if (this.mobileInput.direction === Direction.DOWN) return { dx: 0, dy: 1, direction: Direction.DOWN };
     return { dx: 0, dy: 0, direction: this.model.player.direction };
   }
 

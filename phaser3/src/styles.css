@@ -30,3 +30,108 @@ canvas {
   font: 700 13px Arial, Helvetica, sans-serif;
   text-decoration: none;
 }
+
+.mobile-controls {
+  position: fixed;
+  inset: auto 0 max(14px, env(safe-area-inset-bottom)) 0;
+  z-index: 100001;
+  display: none;
+  justify-content: space-between;
+  align-items: end;
+  padding: 0 max(18px, env(safe-area-inset-right)) 0 max(18px, env(safe-area-inset-left));
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+.mobile-control {
+  pointer-events: auto;
+  border: 2px solid rgba(248, 250, 252, 0.64);
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.72);
+  color: #f8fafc;
+  font: 800 18px Arial, Helvetica, sans-serif;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
+}
+
+.mobile-control:active,
+.mobile-control.pressed {
+  border-color: #facc15;
+  background: rgba(30, 41, 59, 0.9);
+}
+
+.mobile-dpad {
+  display: grid;
+  grid-template-columns: repeat(3, 58px);
+  grid-template-rows: repeat(3, 58px);
+  gap: 6px;
+  pointer-events: none;
+}
+
+.mobile-dpad .mobile-control {
+  width: 58px;
+  height: 58px;
+}
+
+.mobile-up {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.mobile-left {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.mobile-right {
+  grid-column: 3;
+  grid-row: 2;
+}
+
+.mobile-down {
+  grid-column: 2;
+  grid-row: 3;
+}
+
+.mobile-bomb {
+  width: 92px;
+  height: 92px;
+  border-color: rgba(252, 165, 165, 0.82);
+  background: rgba(127, 29, 29, 0.72);
+  font-size: 16px;
+}
+
+@media (hover: none), (pointer: coarse), (max-width: 820px) {
+  .mobile-controls.active {
+    display: flex;
+  }
+
+  .map-editor-link {
+    display: none;
+  }
+}
+
+@media (max-height: 520px) and (orientation: landscape) {
+  .mobile-controls {
+    bottom: max(8px, env(safe-area-inset-bottom));
+  }
+
+  .mobile-dpad {
+    grid-template-columns: repeat(3, 48px);
+    grid-template-rows: repeat(3, 48px);
+    gap: 5px;
+  }
+
+  .mobile-dpad .mobile-control {
+    width: 48px;
+    height: 48px;
+  }
+
+  .mobile-bomb {
+    width: 78px;
+    height: 78px;
+  }
+}

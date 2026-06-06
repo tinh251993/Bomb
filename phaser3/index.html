@@ -9,6 +9,15 @@
 <body>
   <a class="map-editor-link" href="map-editor.html">Map Editor</a>
   <div id="game"></div>
+  <div id="mobile-controls" class="mobile-controls" aria-label="Mobile controls">
+    <div class="mobile-dpad" aria-label="Move controls">
+      <button class="mobile-control mobile-up" type="button" data-mobile-action="up" aria-label="Move up">▲</button>
+      <button class="mobile-control mobile-left" type="button" data-mobile-action="left" aria-label="Move left">◀</button>
+      <button class="mobile-control mobile-right" type="button" data-mobile-action="right" aria-label="Move right">▶</button>
+      <button class="mobile-control mobile-down" type="button" data-mobile-action="down" aria-label="Move down">▼</button>
+    </div>
+    <button class="mobile-control mobile-bomb" type="button" data-mobile-action="bomb" aria-label="Place bomb">BOMB</button>
+  </div>
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.min.js"></script>
   <script type="module" src="src/main.js"></script>
