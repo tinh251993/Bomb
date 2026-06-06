@@ -87,12 +87,16 @@ export const BossTypes = Object.freeze([
     id: 'eagle',
     name: 'Eagle Boss',
     sprites: {
-      down: '../res/Boss/eagle_down.png',
-      up: '../res/Boss/eagle_up.png',
-      left: '../res/Boss/eagle_left.png',
-      right: '../res/Boss/eagle_right.png',
-      fire: '../res/Boss/eagle_fire.png',
-      dead: '../res/Boss/eagle_dead.png'
+      down: '../res/Boss/eagle_new/move_front_1.png',
+      up: '../res/Boss/eagle_new/idle_back_1.png',
+      left: '../res/Boss/eagle_new/move_left.png',
+      right: '../res/Boss/eagle_new/move_right_1.png',
+      fire: '../res/Boss/eagle_new/cannon_flash.png',
+      dead: '../res/Boss/eagle_new/defeated_fall_3.png',
+      flyDown: '../res/Boss/eagle_new/airborne_down_1.png',
+      flyUp: '../res/Boss/eagle_new/airborne_up_1.png',
+      flyLeft: '../res/Boss/eagle_new/fly_1.png',
+      flyRight: '../res/Boss/eagle_new/fly_1.png'
     }
   }
 ]);

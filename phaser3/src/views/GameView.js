@@ -210,7 +210,7 @@ export class GameView {
 
   setBossDirection(direction, boss = this.model.boss) {
     if (!boss?.sprite) return;
-    boss.sprite.setFlipX(false);
+    boss.sprite.setFlipX(boss.type?.id === 'eagle' && boss.flying && direction === 'left');
     boss.sprite.setTexture(this.bossTexture(direction, boss));
   }
 
@@ -320,6 +320,7 @@ export class GameView {
     boss.sprite.clearTint();
     boss.sprite.setAlpha(1);
     if (flying) boss.sprite.setTint(0xbae6fd);
+    this.setBossDirection(boss.direction, boss);
     this.updateBossDepth(boss);
   }
 
@@ -526,6 +527,15 @@ export class GameView {
 
   bossTexture(direction, boss = this.model.boss) {
     const state = ['up', 'left', 'right', 'fire', 'dead'].includes(direction) ? direction : 'down';
+    if (boss?.type?.id === 'eagle' && boss.flying && !['fire', 'dead'].includes(state)) {
+      const flyingState = {
+        up: 'flyUp',
+        down: 'flyDown',
+        left: 'flyLeft',
+        right: 'flyRight'
+      }[state] || 'flyDown';
+      return this.bossTextureKey(boss.type, flyingState);
+    }
     return this.bossTextureKey(boss?.type || BossTypes[0], state);
   }
 
