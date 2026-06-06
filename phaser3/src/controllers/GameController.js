@@ -209,7 +209,6 @@ export class GameController {
   update(time, delta) {
     if (this.model.gameOver) return;
 
-    this.updateDownedState(time);
     this.handlePlayerMove(delta / 1000);
     this.handleItemPickup();
     if (this.isAuthoritativeHost()) {
@@ -220,7 +219,6 @@ export class GameController {
     }
     this.checkEnemyCollision();
     this.checkBossCollision();
-    this.checkRemoteRevive(time);
     this.broadcastPlayerState(time);
   }
 
@@ -744,9 +742,7 @@ export class GameController {
     if (!player.isAliveState()) return;
     if (player.isInvincible(this.scene.time.now)) return;
 
-    player.downUntil(this.scene.time.now + 15000);
-    this.view.updateLocalPlayerStatus(15000);
-    this.broadcastPlayerState(this.scene.time.now + 1000);
+    this.killLocalPlayer();
   }
 
   reviveLocalPlayer() {
