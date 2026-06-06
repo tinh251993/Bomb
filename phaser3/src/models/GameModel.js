@@ -84,14 +84,8 @@ export class GameModel {
     if (customBoss) {
       this.spawnBoss({ x: customBoss.x, y: customBoss.y });
     }
-    if (this.level === 3) {
-      if (this.boss) {
-        this.spawnLevelThreeEnemies();
-        return;
-      }
+    if (this.level === 3 && !this.boss) {
       this.spawnBoss();
-      this.spawnLevelThreeEnemies();
-      return;
     }
     if (this.level === 6 && !this.boss) {
       this.spawnBoss(FOREST_BOSS_SPAWN);
@@ -100,6 +94,11 @@ export class GameModel {
     const customEnemies = this.customMap?.objects?.filter((object) => object.kind === 'enemy') || [];
     if (customEnemies.length > 0) {
       this.spawnCustomEnemies(customEnemies);
+      return;
+    }
+
+    if (this.level === 3) {
+      this.spawnLevelThreeEnemies();
       return;
     }
 
@@ -125,12 +124,14 @@ export class GameModel {
     ]);
 
     customEnemies.forEach((spot) => {
-      const pos = this.map.findNearestOpen(Number(spot.x) || 1, Number(spot.y) || 1);
-      const key = GridMath.key(pos.x, pos.y);
+      const x = Number(spot.x) || 1;
+      const y = Number(spot.y) || 1;
+      const key = GridMath.key(x, y);
+      if (!this.map.isEmpty(x, y)) return;
       if (used.has(key)) return;
 
       used.add(key);
-      const enemy = new Enemy(pos.x, pos.y);
+      const enemy = new Enemy(x, y);
       enemy.id = `enemy-${this.enemies.length}`;
       this.enemies.push(enemy);
     });
