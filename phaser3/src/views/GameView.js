@@ -40,12 +40,12 @@ export class GameView {
     });
     load.image('enemy', '../res/quaivat 3_down.png');
     load.image('forest-enemy', '../res/quaivat3new_down.png');
-    load.image(BossTextures.down, '../res/Boss/boss_allmode_down.png');
-    load.image(BossTextures.up, '../res/Boss/boss_allmode_up.png');
-    load.image(BossTextures.left, '../res/Boss/boss_allmode_left.png');
-    load.image(BossTextures.right, '../res/Boss/boss_allmode_right.png');
-    load.image(BossTextures.fire, '../res/Boss/boss_allmode_fire.png');
-    load.image(BossTextures.dead, '../res/Boss/boss_allmode_dead.png');
+    load.image(BossTextures.down, '../res/Boss/boss_update_down.png');
+    load.image(BossTextures.up, '../res/Boss/boss_update_up.png');
+    load.image(BossTextures.left, '../res/Boss/boss_update_left.png');
+    load.image(BossTextures.right, '../res/Boss/boss_update_right.png');
+    load.image(BossTextures.fire, '../res/Boss/boss_update_fire.png');
+    load.image(BossTextures.dead, '../res/Boss/boss_update_dead.png');
     load.image('boss-bomb', '../res/bomb.gif');
     load.image('item-bomb', '../res/items/item_bomb.gif');
     load.image('item-flame', '../res/items/item_bombsize.gif');

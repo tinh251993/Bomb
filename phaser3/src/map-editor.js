@@ -487,6 +487,12 @@ function renderObjects() {
     const marker = document.createElement('span');
     marker.className = `cell-object ${object.kind === 'boss' ? 'boss-object' : object.kind === 'enemy' ? 'enemy-object' : 'asset-object'}`;
     marker.dataset.objectIndex = String(index);
+    if (object.kind === 'boss') {
+      const image = document.createElement('img');
+      image.src = '../res/Boss/boss_update_down.png';
+      image.alt = 'Boss';
+      marker.appendChild(image);
+    }
     if (object.kind === 'enemy') {
       const image = document.createElement('img');
       image.src = mapTypeInput.value === 'forest' ? '../res/quaivat3new_down.png' : '../res/quaivat 3_down.png';
