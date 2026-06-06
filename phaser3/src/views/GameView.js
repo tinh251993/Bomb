@@ -126,13 +126,12 @@ export class GameView {
   }
 
   drawBoss() {
-    const boss = this.model.boss;
-    if (!boss) return;
-
-    const pos = this.bossWorldPosition(boss);
-    const sprite = this.scene.add.sprite(pos.x, pos.y, BossTextures.down).setDisplaySize(TILE * 2, TILE * 2);
-    this.updateSpriteDepth(sprite);
-    boss.attachSprite(sprite);
+    this.model.bosses.forEach((boss) => {
+      const pos = this.bossWorldPosition(boss);
+      const sprite = this.scene.add.sprite(pos.x, pos.y, BossTextures.down).setDisplaySize(TILE * 2, TILE * 2);
+      this.updateSpriteDepth(sprite);
+      boss.attachSprite(sprite);
+    });
   }
 
   drawHud() {
@@ -179,7 +178,7 @@ export class GameView {
   }
 
   drawBossHud() {
-    if (!this.model.boss) return;
+    if (!this.model.isBossAlive()) return;
 
     this.bossHealthBg = this.scene.add.rectangle(WIDTH / 2, HUD + 16, 260, 12, 0x111827, 0.86)
       .setDepth(10001);
@@ -213,24 +212,22 @@ export class GameView {
     this.model.player.sprite.setTexture(this.playerTexture(direction));
   }
 
-  setBossDirection(direction) {
-    if (!this.model.boss?.sprite) return;
-    this.model.boss.sprite.setFlipX(false);
-    this.model.boss.sprite.setTexture(this.bossTexture(direction));
+  setBossDirection(direction, boss = this.model.boss) {
+    if (!boss?.sprite) return;
+    boss.sprite.setFlipX(false);
+    boss.sprite.setTexture(this.bossTexture(direction));
   }
 
-  playBossFire() {
-    const boss = this.model.boss;
+  playBossFire(boss = this.model.boss) {
     if (!boss?.sprite) return;
 
     boss.sprite.setTexture(BossTextures.fire);
     this.scene.time.delayedCall(360, () => {
-      if (boss.sprite?.active) this.setBossDirection(boss.direction);
+      if (boss.sprite?.active) this.setBossDirection(boss.direction, boss);
     });
   }
 
-  showBossDead() {
-    const boss = this.model.boss;
+  showBossDead(boss = this.model.boss) {
     if (!boss?.sprite) return;
 
     boss.sprite.setTexture(BossTextures.dead);
@@ -315,8 +312,7 @@ export class GameView {
     });
   }
 
-  syncBoss() {
-    const boss = this.model.boss;
+  syncBoss(boss = this.model.boss) {
     if (!boss?.sprite) return;
 
     const pos = this.bossWorldPosition(boss);
@@ -437,12 +433,15 @@ export class GameView {
   }
 
   updateBossHud() {
-    const boss = this.model.boss;
-    if (!boss || !this.bossHealthFill) return;
+    if (!this.bossHealthFill) return;
 
-    const ratio = Math.max(0, boss.health / boss.maxHealth);
+    const aliveBosses = this.model.bosses.filter((boss) => boss.isAlive());
+    const totalHealth = aliveBosses.reduce((sum, boss) => sum + boss.health, 0);
+    const totalMaxHealth = aliveBosses.reduce((sum, boss) => sum + boss.maxHealth, 0);
+    const maxRange = aliveBosses.reduce((max, boss) => Math.max(max, boss.getBombRange()), 0);
+    const ratio = totalMaxHealth > 0 ? Math.max(0, totalHealth / totalMaxHealth) : 0;
     this.bossHealthFill.setDisplaySize(260 * ratio, 12);
-    this.bossHealthText?.setText(`BOSS HP ${boss.health}/${boss.maxHealth}   RANGE ${boss.getBombRange()}`);
+    this.bossHealthText?.setText(`BOSS x${aliveBosses.length} HP ${totalHealth}/${totalMaxHealth}   RANGE ${maxRange}`);
   }
 
   clearBossHud() {

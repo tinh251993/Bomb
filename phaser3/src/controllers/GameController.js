@@ -336,7 +336,8 @@ export class GameController {
 
   handleEnemyMove(time) {
     if (time < this.enemyStepTime) return;
-    this.enemyStepTime = time + 260;
+    const speed = this.model.enemies[0]?.speed || 1;
+    this.enemyStepTime = time + Math.round(260 / speed);
 
     this.model.enemies.forEach((enemy) => {
       if (!enemy.isAlive()) return;
@@ -357,24 +358,27 @@ export class GameController {
   }
 
   handleBossMove(time) {
-    const boss = this.model.boss;
-    if (!boss?.isAlive() || time < this.bossStepTime) return;
-    this.bossStepTime = time + Math.round(260 / boss.speed);
+    this.model.bosses.forEach((boss) => {
+      if (!boss?.isAlive()) return;
+      if (!boss.nextStepAt) boss.nextStepAt = 0;
+      if (time < boss.nextStepAt) return;
+      boss.nextStepAt = time + Math.round(260 / boss.speed);
 
-    const choices = DIRS.filter((dir) => this.model.canBossOccupy(boss.gridX + dir.x, boss.gridY + dir.y));
-    if (choices.length === 0) return;
+      const choices = DIRS.filter((dir) => this.model.canBossOccupy(boss.gridX + dir.x, boss.gridY + dir.y, boss));
+      if (choices.length === 0) return;
 
-    const chaseDir = this.getChaseDirection(boss, time, 15000, 8000);
-    if (chaseDir) {
-      boss.dir = chaseDir;
-    } else if (!this.model.canBossOccupy(boss.gridX + boss.dir.x, boss.gridY + boss.dir.y) || Phaser.Math.Between(0, 100) < 34) {
-      boss.chooseDirection(choices);
-    }
+      const chaseDir = this.getChaseDirection(boss, time, 15000, 8000);
+      if (chaseDir) {
+        boss.dir = chaseDir;
+      } else if (!this.model.canBossOccupy(boss.gridX + boss.dir.x, boss.gridY + boss.dir.y, boss) || Phaser.Math.Between(0, 100) < 34) {
+        boss.chooseDirection(choices);
+      }
 
-    boss.setDirection(this.directionFromDelta(boss.dir));
-    this.view.setBossDirection(boss.direction);
-    boss.setGridPosition(boss.gridX + boss.dir.x, boss.gridY + boss.dir.y);
-    this.view.moveBoss(boss);
+      boss.setDirection(this.directionFromDelta(boss.dir));
+      this.view.setBossDirection(boss.direction, boss);
+      boss.setGridPosition(boss.gridX + boss.dir.x, boss.gridY + boss.dir.y);
+      this.view.moveBoss(boss);
+    });
   }
 
   getChaseDirection(actor, time, cooldownMs, durationMs) {
@@ -438,9 +442,8 @@ export class GameController {
   }
 
   canActorMoveTo(startX, startY, nextX, nextY, targetX, targetY) {
-    const boss = this.model.boss;
-    const actorIsBoss = boss?.gridX === startX && boss?.gridY === startY;
-    if (actorIsBoss) return this.model.canBossOccupy(nextX, nextY);
+    const boss = this.model.bosses.find((item) => item.gridX === startX && item.gridY === startY);
+    if (boss) return this.model.canBossOccupy(nextX, nextY, boss);
     if (nextX === targetX && nextY === targetY) return true;
     return this.model.isWalkable(nextX, nextY);
   }
@@ -453,28 +456,30 @@ export class GameController {
   }
 
   handleBossBombThrow(time) {
-    if (!this.model.boss?.isAlive()) return;
+    this.model.bosses.forEach((boss) => {
+      if (!boss?.isAlive()) return;
 
-    if (this.nextBossThrowAt === 0) {
-      this.nextBossThrowAt = time + 6000;
-      return;
-    }
-    if (time < this.nextBossThrowAt) return;
+      if (!boss.nextThrowAt) {
+        boss.nextThrowAt = time + 6000;
+        return;
+      }
+      if (time < boss.nextThrowAt) return;
 
-    this.nextBossThrowAt = time + 6000;
-    this.view.playBossFire();
-    this.model.getRandomBossBombSpots(8).forEach((spot) => {
-      const bomb = this.model.placeBossBomb(spot.x, spot.y);
-      if (!bomb) return;
+      boss.nextThrowAt = time + 6000;
+      this.view.playBossFire(boss);
+      this.model.getRandomBossBombSpots(8).forEach((spot) => {
+        const bomb = this.model.placeBossBomb(spot.x, spot.y, boss);
+        if (!bomb) return;
 
-      this.view.createBombSprite(bomb);
-      const key = GridMath.key(bomb.gridX, bomb.gridY);
-      bomb.setTimer(this.scene.time.delayedCall(1650, () => this.explodeBomb(key)));
-      multiplayer.sendBombPlace({
-        x: bomb.gridX,
-        y: bomb.gridY,
-        range: bomb.range,
-        bombTypeId: bomb.type.id
+        this.view.createBombSprite(bomb);
+        const key = GridMath.key(bomb.gridX, bomb.gridY);
+        bomb.setTimer(this.scene.time.delayedCall(1650, () => this.explodeBomb(key)));
+        multiplayer.sendBombPlace({
+          x: bomb.gridX,
+          y: bomb.gridY,
+          range: bomb.range,
+          bombTypeId: bomb.type.id
+        });
       });
     });
   }
@@ -560,11 +565,9 @@ export class GameController {
     if (owner !== 'boss') {
       this.model.killEnemiesIn(cells);
     }
-    const bossWasKilled = owner !== 'boss' && this.model.damageBossIn(cells);
-    if (bossWasKilled) {
-      this.view.showBossDead();
-      this.view.clearBossHud();
-    }
+    const killedBosses = owner !== 'boss' ? this.model.damageBossIn(cells) : [];
+    killedBosses.forEach((boss) => this.view.showBossDead(boss));
+    if (!this.model.isBossAlive()) this.view.clearBossHud();
     this.view.updateBossHud();
     if (this.model.isLevelCleared()) this.clearLevel();
   }
@@ -627,11 +630,13 @@ export class GameController {
 
   checkBossCollision() {
     const player = this.model.player;
-    const boss = this.model.boss;
-    if (player.isDead() || player.isInvincible(this.scene.time.now) || !boss?.isAlive()) return;
+    if (player.isDead() || player.isInvincible(this.scene.time.now)) return;
 
-    const hit = boss.getOccupiedCells().some((cell) => cell.x === player.gridX && cell.y === player.gridY)
-      || Phaser.Math.Distance.Between(player.sprite.x, player.sprite.y, boss.sprite.x, boss.sprite.y) < 70;
+    const hit = this.model.bosses.some((boss) => {
+      if (!boss?.isAlive()) return false;
+      return boss.getOccupiedCells().some((cell) => cell.x === player.gridX && cell.y === player.gridY)
+        || Phaser.Math.Distance.Between(player.sprite.x, player.sprite.y, boss.sprite.x, boss.sprite.y) < 70;
+    });
     if (!hit) return;
 
     this.killLocalPlayer();
@@ -677,6 +682,14 @@ export class GameController {
         y: enemy.gridY,
         alive: enemy.isAlive()
       })),
+      bosses: this.model.bosses.map((boss) => ({
+        id: boss.id,
+        x: boss.gridX,
+        y: boss.gridY,
+        direction: boss.direction,
+        health: boss.health,
+        alive: boss.isAlive()
+      })),
       boss: this.model.boss ? {
         x: this.model.boss.gridX,
         y: this.model.boss.gridY,
@@ -711,14 +724,19 @@ export class GameController {
 
     this.model.enemies = this.model.enemies.filter((enemy) => enemy.isAlive());
 
-    if (state.boss && this.model.boss) {
-      this.model.boss.setGridPosition(state.boss.x, state.boss.y);
-      this.model.boss.setDirection(state.boss.direction || this.model.boss.direction);
-      this.model.boss.health = state.boss.health;
-      if (!state.boss.alive) this.model.boss.destroy();
-      this.view.setBossDirection(this.model.boss.direction);
-      this.view.syncBoss();
-    }
+    const bossStates = state.bosses || (state.boss ? [{ id: 'boss-0', ...state.boss }] : []);
+    bossStates.forEach((bossState) => {
+      const boss = this.model.bosses.find((item) => item.id === bossState.id);
+      if (!boss) return;
+
+      boss.setGridPosition(bossState.x, bossState.y);
+      boss.setDirection(bossState.direction || boss.direction);
+      boss.health = bossState.health;
+      if (!bossState.alive) boss.destroy();
+      this.view.setBossDirection(boss.direction, boss);
+      this.view.syncBoss(boss);
+    });
+    this.model.boss = this.model.bosses.find((boss) => boss.isAlive()) || null;
   }
 
   downLocalPlayer() {

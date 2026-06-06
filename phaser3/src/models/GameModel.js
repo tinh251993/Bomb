@@ -44,6 +44,18 @@ const LEVEL_THREE_ENEMY_SPAWN_HINTS = [
 ];
 const BOSS_SPAWN = { x: 3, y: 9 };
 const FOREST_BOSS_SPAWN = { x: 12, y: 5 };
+const BOSS_SPAWN_HINTS = [
+  BOSS_SPAWN,
+  { x: 20, y: 9 },
+  FOREST_BOSS_SPAWN,
+  { x: 20, y: 3 }
+];
+const FOREST_BOSS_SPAWN_HINTS = [
+  FOREST_BOSS_SPAWN,
+  { x: 20, y: 5 },
+  { x: 4, y: 5 },
+  { x: 20, y: 9 }
+];
 
 export class GameModel {
   constructor(options = {}) {
@@ -61,6 +73,8 @@ export class GameModel {
     this.applyPlayerStats(options.playerStats);
     this.infiniteLives = Boolean(options.infiniteLives || options.playerStats?.infiniteLives);
     this.enemies = [];
+    this.speedMultiplier = this.getLevelSpeedMultiplier();
+    this.bosses = [];
     this.boss = null;
     this.bombs = new Map();
     this.playerPassThroughBombs = new Set();
@@ -85,12 +99,7 @@ export class GameModel {
     if (customBoss) {
       this.spawnBoss({ x: customBoss.x, y: customBoss.y });
     }
-    if (this.level === 3 && !this.boss) {
-      this.spawnBoss();
-    }
-    if (this.level === 6 && !this.boss) {
-      this.spawnBoss(FOREST_BOSS_SPAWN);
-    }
+    this.spawnLevelBosses();
 
     const customEnemies = this.customMap?.objects?.filter((object) => object.kind === 'enemy') || [];
     if (customEnemies.length > 0) {
@@ -103,8 +112,11 @@ export class GameModel {
       return;
     }
 
-    const count = this.playerCount * 4;
-    const used = new Set();
+    const count = Math.min(ENEMY_SPAWN_HINTS.length, this.playerCount * 4 + this.level - 1);
+    const used = new Set([
+      GridMath.key(this.player.gridX, this.player.gridY),
+      ...this.getBossOccupiedKeys()
+    ]);
 
     ENEMY_SPAWN_HINTS.slice(0, count).forEach((spot) => {
       const pos = this.map.findNearestOpen(spot.x, spot.y);
@@ -112,16 +124,29 @@ export class GameModel {
       if (used.has(key)) return;
 
       used.add(key);
-      const enemy = new Enemy(pos.x, pos.y);
+      const enemy = new Enemy(pos.x, pos.y, this.speedMultiplier);
       enemy.id = `enemy-${this.enemies.length}`;
       this.enemies.push(enemy);
     });
   }
 
+  getLevelSpeedMultiplier() {
+    return 1 + this.level * 0.1;
+  }
+
+  spawnLevelBosses() {
+    const targetCount = Math.floor(this.level / 3);
+    while (this.bosses.length < targetCount) {
+      const hints = this.level >= 6 ? FOREST_BOSS_SPAWN_HINTS : BOSS_SPAWN_HINTS;
+      const spawn = hints[this.bosses.length] || hints[hints.length - 1];
+      this.spawnBoss(spawn);
+    }
+  }
+
   spawnCustomEnemies(customEnemies) {
     const used = new Set([
       GridMath.key(this.player.gridX, this.player.gridY),
-      this.boss ? GridMath.key(this.boss.gridX, this.boss.gridY) : ''
+      ...this.getBossOccupiedKeys()
     ]);
 
     customEnemies.forEach((spot) => {
@@ -132,17 +157,17 @@ export class GameModel {
       if (used.has(key)) return;
 
       used.add(key);
-      const enemy = new Enemy(x, y);
+      const enemy = new Enemy(x, y, this.speedMultiplier);
       enemy.id = `enemy-${this.enemies.length}`;
       this.enemies.push(enemy);
     });
   }
 
   spawnLevelThreeEnemies() {
-    const count = Math.min(this.playerCount * 5, 12);
+    const count = Math.min(LEVEL_THREE_ENEMY_SPAWN_HINTS.length, this.playerCount * 5 + this.level - 1);
     const used = new Set([
       GridMath.key(this.player.gridX, this.player.gridY),
-      this.boss ? GridMath.key(this.boss.gridX, this.boss.gridY) : ''
+      ...this.getBossOccupiedKeys()
     ]);
 
     LEVEL_THREE_ENEMY_SPAWN_HINTS.slice(0, count).forEach((spot) => {
@@ -151,7 +176,7 @@ export class GameModel {
       if (used.has(key)) return;
 
       used.add(key);
-      const enemy = new Enemy(pos.x, pos.y);
+      const enemy = new Enemy(pos.x, pos.y, this.speedMultiplier);
       enemy.id = `enemy-${this.enemies.length}`;
       this.enemies.push(enemy);
     });
@@ -159,7 +184,17 @@ export class GameModel {
 
   spawnBoss(spawn = BOSS_SPAWN) {
     const pos = this.findNearestBossArea(spawn.x, spawn.y);
-    this.boss = new Boss(pos.x, pos.y);
+    const boss = new Boss(pos.x, pos.y, 1.2 * this.speedMultiplier);
+    boss.id = `boss-${this.bosses.length}`;
+    this.bosses.push(boss);
+    this.boss = this.bosses[0] || null;
+    return boss;
+  }
+
+  getBossOccupiedKeys() {
+    return this.bosses.flatMap((boss) => {
+      return boss.getOccupiedCells().map((cell) => GridMath.key(cell.x, cell.y));
+    });
   }
 
   findNearestBossArea(startX, startY) {
@@ -203,11 +238,13 @@ export class GameModel {
     return bomb;
   }
 
-  placeBossBomb(x, y) {
+  placeBossBomb(x, y, sourceBoss = this.boss) {
     const key = GridMath.key(x, y);
-    if (!this.boss || this.bombs.has(key) || !this.map.isEmpty(x, y)) return null;
+    if (!this.isBossAlive() || this.bombs.has(key) || !this.map.isEmpty(x, y)) return null;
 
-    const bomb = new Bomb(x, y, this.boss.getBombRange(), BossBombType, 'boss');
+    const aliveBoss = sourceBoss?.isAlive() ? sourceBoss : this.bosses.find((boss) => boss.isAlive()) || this.boss;
+    if (!aliveBoss) return null;
+    const bomb = new Bomb(x, y, aliveBoss.getBombRange(), BossBombType, 'boss');
     this.bombs.set(key, bomb);
     return bomb;
   }
@@ -363,25 +400,30 @@ export class GameModel {
   }
 
   damageBossIn(cells) {
-    if (!this.boss || !this.boss.isAlive()) return false;
+    const killedBosses = [];
 
-    const bossCells = new Set(this.boss.getOccupiedCells().map((cell) => GridMath.key(cell.x, cell.y)));
-    const hit = cells.some((cell) => {
-      return bossCells.has(GridMath.key(cell.x, cell.y));
+    this.bosses.forEach((boss) => {
+      if (!boss.isAlive()) return;
+
+      const bossCells = new Set(boss.getOccupiedCells().map((cell) => GridMath.key(cell.x, cell.y)));
+      const hit = cells.some((cell) => bossCells.has(GridMath.key(cell.x, cell.y)));
+      if (!hit) return;
+
+      const killed = boss.takeDamage(10);
+      if (killed) {
+        this.score += 1000;
+        killedBosses.push(boss);
+      } else {
+        this.score += 80;
+      }
     });
-    if (!hit) return false;
 
-    const killed = this.boss.takeDamage(10);
-    if (killed) {
-      this.score += 1000;
-    } else {
-      this.score += 80;
-    }
-    return killed;
+    this.boss = this.bosses.find((boss) => boss.isAlive()) || null;
+    return killedBosses;
   }
 
   isBossAlive() {
-    return Boolean(this.boss?.isAlive());
+    return this.bosses.some((boss) => boss.isAlive());
   }
 
   isLevelCleared() {
@@ -397,15 +439,24 @@ export class GameModel {
     return this.map.isEmpty(x, y) && !this.bombs.has(GridMath.key(x, y));
   }
 
-  canBossOccupy(x, y) {
-    if (!this.boss) {
-      return this.map.isEmpty(x, y)
-        && this.map.isEmpty(x + 1, y)
-        && this.map.isEmpty(x, y + 1)
-        && this.map.isEmpty(x + 1, y + 1);
-    }
+  canBossOccupy(x, y, ignoredBoss = null) {
+    const occupied = new Set();
+    this.bosses.forEach((boss) => {
+      if (!boss.isAlive()) return;
+      if (boss === ignoredBoss) return;
+      boss.getOccupiedCells().forEach((cell) => occupied.add(GridMath.key(cell.x, cell.y)));
+    });
 
-    return this.boss.getOccupiedCells(x, y).every((cell) => this.isWalkable(cell.x, cell.y));
+    const cells = [
+      { x, y },
+      { x: x + 1, y },
+      { x, y: y + 1 },
+      { x: x + 1, y: y + 1 }
+    ];
+    return cells.every((cell) => {
+      const key = GridMath.key(cell.x, cell.y);
+      return this.map.isEmpty(cell.x, cell.y) && !this.bombs.has(key) && !occupied.has(key);
+    });
   }
 
   isPlayerWalkable(x, y) {

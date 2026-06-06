@@ -4,8 +4,8 @@ import { Character } from './Character.js';
 const Phaser = window.Phaser;
 
 export class Boss extends Character {
-  constructor(x, y) {
-    super(x, y, 1.2);
+  constructor(x, y, speed = 1.2) {
+    super(x, y, speed);
     this.maxHealth = 100;
     this.health = this.maxHealth;
     this.dir = Phaser.Utils.Array.GetRandom(DIRS);
