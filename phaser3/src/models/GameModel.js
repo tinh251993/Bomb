@@ -56,6 +56,7 @@ const FOREST_BOSS_SPAWN_HINTS = [
   { x: 4, y: 5 },
   { x: 20, y: 9 }
 ];
+const BASE_ENEMY_COUNT = 4;
 
 export class GameModel {
   constructor(options = {}) {
@@ -113,7 +114,7 @@ export class GameModel {
       return;
     }
 
-    const count = Math.min(ENEMY_SPAWN_HINTS.length, this.playerCount * 4 + this.level - 1);
+    const count = this.getScaledEnemyCount(ENEMY_SPAWN_HINTS.length);
     const used = new Set([
       GridMath.key(this.player.gridX, this.player.gridY),
       ...this.getBossOccupiedKeys()
@@ -132,7 +133,11 @@ export class GameModel {
   }
 
   getLevelSpeedMultiplier() {
-    return 1 + this.level * 0.1;
+    return 1 + (this.level - 1) * 0.1;
+  }
+
+  getScaledEnemyCount(maxCount) {
+    return Math.min(maxCount, BASE_ENEMY_COUNT * this.playerCount + this.level - 1);
   }
 
   spawnLevelBosses() {
@@ -165,7 +170,7 @@ export class GameModel {
   }
 
   spawnLevelThreeEnemies() {
-    const count = Math.min(LEVEL_THREE_ENEMY_SPAWN_HINTS.length, this.playerCount * 5 + this.level - 1);
+    const count = this.getScaledEnemyCount(LEVEL_THREE_ENEMY_SPAWN_HINTS.length);
     const used = new Set([
       GridMath.key(this.player.gridX, this.player.gridY),
       ...this.getBossOccupiedKeys()
@@ -430,6 +435,14 @@ export class GameModel {
 
   isBossAlive() {
     return this.bosses.some((boss) => boss.isAlive());
+  }
+
+  getAliveEnemyCount() {
+    return this.enemies.filter((enemy) => enemy.isAlive()).length;
+  }
+
+  getAliveBossCount() {
+    return this.bosses.filter((boss) => boss.isAlive()).length;
   }
 
   isLevelCleared() {

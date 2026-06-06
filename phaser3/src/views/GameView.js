@@ -197,8 +197,9 @@ export class GameView {
   updateHud() {
     const player = this.model.player;
     const status = player.status === 'alive' ? '' : `   ${player.status.toUpperCase()}`;
-    const lives = this.model.infiniteLives ? '   Lives INF' : '';
-    this.scoreText.setText(`Level ${this.model.level}   Score ${this.model.score}   Deaths ${this.model.levelDeathCount}   Bombs ${player.maxBombs}   Range ${player.bombRange}   Type ${player.currentBombType.name}${lives}${status}`);
+    const enemies = this.model.getAliveEnemyCount();
+    const bosses = this.model.getAliveBossCount();
+    this.scoreText.setText(`Level ${this.model.level}   Score ${this.model.score}   Deaths ${this.model.levelDeathCount}   Enemies ${enemies}   Bosses ${bosses}   Bombs ${player.maxBombs}   Range ${player.bombRange}   Type ${player.currentBombType.name}${status}`);
   }
 
   updatePing(latencyMs) {
@@ -285,7 +286,7 @@ export class GameView {
       targets: enemy.sprite,
       x: pos.x,
       y: pos.y,
-      duration: 220,
+      duration: Math.max(90, Math.round(220 / Math.max(1, enemy.speed || 1))),
       ease: 'Linear',
       onUpdate: () => this.updateSpriteDepth(enemy.sprite),
       onComplete: () => this.updateSpriteDepth(enemy.sprite)
@@ -305,7 +306,7 @@ export class GameView {
       targets: boss.sprite,
       x: pos.x,
       y: pos.y,
-      duration: 185,
+      duration: Math.max(80, Math.round(185 / Math.max(1, boss.speed || 1))),
       ease: 'Linear',
       onUpdate: () => this.updateSpriteDepth(boss.sprite),
       onComplete: () => this.updateSpriteDepth(boss.sprite)
