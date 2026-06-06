@@ -295,6 +295,7 @@ function sanitizeCustomMap(customMap) {
       y: Number(object.y) || 0,
       width: Number(object.width) || 1,
       height: Number(object.height) || 1,
+      bossType: ['pirate', 'eagle'].includes(object.bossType) ? object.bossType : undefined,
       assetId: object.assetId ? String(object.assetId).slice(0, 80) : undefined,
       name: object.name ? String(object.name).slice(0, 80) : undefined
     })) : []

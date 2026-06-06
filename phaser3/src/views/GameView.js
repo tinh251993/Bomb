@@ -1,15 +1,6 @@
-import { Characters, COLS, HEIGHT, HUD, ROWS, TILE, TileType, WIDTH } from '../core/constants.js';
+import { BossTypes, Characters, COLS, HEIGHT, HUD, ROWS, TILE, TileType, WIDTH } from '../core/constants.js';
 import { createBombSheetTextures } from '../core/BombTextureFactory.js';
 import { GridMath } from '../core/GridMath.js';
-
-const BossTextures = Object.freeze({
-  down: 'boss-down',
-  up: 'boss-up',
-  left: 'boss-left',
-  right: 'boss-right',
-  fire: 'boss-fire',
-  dead: 'boss-dead'
-});
 
 export class GameView {
   constructor(scene, model) {
@@ -40,12 +31,11 @@ export class GameView {
     });
     load.image('enemy', '../res/quaivat 3_down.png');
     load.image('forest-enemy', '../res/quaivat3new_down.png');
-    load.image(BossTextures.down, '../res/Boss/boss_update_down.png');
-    load.image(BossTextures.up, '../res/Boss/boss_update_up.png');
-    load.image(BossTextures.left, '../res/Boss/boss_update_left.png');
-    load.image(BossTextures.right, '../res/Boss/boss_update_right.png');
-    load.image(BossTextures.fire, '../res/Boss/boss_update_fire.png');
-    load.image(BossTextures.dead, '../res/Boss/boss_update_dead.png');
+    BossTypes.forEach((bossType) => {
+      Object.entries(bossType.sprites).forEach(([state, path]) => {
+        load.image(this.bossTextureKey(bossType, state), path);
+      });
+    });
     load.image('boss-bomb', '../res/bomb.gif');
     load.image('item-bomb', '../res/items/item_bomb.gif');
     load.image('item-flame', '../res/items/item_bombsize.gif');
@@ -129,7 +119,7 @@ export class GameView {
   drawBoss() {
     this.model.bosses.forEach((boss) => {
       const pos = this.bossWorldPosition(boss);
-      const sprite = this.scene.add.sprite(pos.x, pos.y, BossTextures.down).setDisplaySize(TILE * 2, TILE * 2);
+      const sprite = this.scene.add.sprite(pos.x, pos.y, this.bossTexture('down', boss)).setDisplaySize(TILE * 2, TILE * 2);
       this.updateSpriteDepth(sprite);
       boss.attachSprite(sprite);
     });
@@ -217,13 +207,13 @@ export class GameView {
   setBossDirection(direction, boss = this.model.boss) {
     if (!boss?.sprite) return;
     boss.sprite.setFlipX(false);
-    boss.sprite.setTexture(this.bossTexture(direction));
+    boss.sprite.setTexture(this.bossTexture(direction, boss));
   }
 
   playBossFire(boss = this.model.boss, duration = 360) {
     if (!boss?.sprite) return;
 
-    boss.sprite.setTexture(BossTextures.fire);
+    boss.sprite.setTexture(this.bossTexture('fire', boss));
     this.scene.time.delayedCall(duration, () => {
       if (boss.sprite?.active) this.setBossDirection(boss.direction, boss);
     });
@@ -232,7 +222,7 @@ export class GameView {
   showBossDead(boss = this.model.boss) {
     if (!boss?.sprite) return;
 
-    boss.sprite.setTexture(BossTextures.dead);
+    boss.sprite.setTexture(this.bossTexture('dead', boss));
     boss.sprite.setVisible(true);
     this.scene.tweens.add({
       targets: boss.sprite,
@@ -507,11 +497,14 @@ export class GameView {
     return `${this.model.player.character.id}-${direction}`;
   }
 
-  bossTexture(direction) {
-    if (direction === 'up') return BossTextures.up;
-    if (direction === 'left') return BossTextures.left;
-    if (direction === 'right') return BossTextures.right;
-    return BossTextures.down;
+  bossTexture(direction, boss = this.model.boss) {
+    const state = ['up', 'left', 'right', 'fire', 'dead'].includes(direction) ? direction : 'down';
+    return this.bossTextureKey(boss?.type || BossTypes[0], state);
+  }
+
+  bossTextureKey(bossType, state) {
+    const typeId = BossTypes.some((type) => type.id === bossType?.id) ? bossType.id : BossTypes[0].id;
+    return `boss-${typeId}-${state}`;
   }
 
   bossWorldPosition(boss) {

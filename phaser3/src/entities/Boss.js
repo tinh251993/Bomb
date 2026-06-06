@@ -4,7 +4,7 @@ import { Character } from './Character.js';
 const Phaser = window.Phaser;
 
 export class Boss extends Character {
-  constructor(x, y, speed = 1.2) {
+  constructor(x, y, speed = 1.2, type = null) {
     super(x, y, speed);
     this.maxHealth = 100;
     this.health = this.maxHealth;
@@ -13,6 +13,7 @@ export class Boss extends Character {
     this.nextChaseAt = 0;
     this.chaseUntil = 0;
     this.size = 2;
+    this.type = type;
   }
 
   getOccupiedCells(x = this.gridX, y = this.gridY) {

@@ -1,4 +1,4 @@
-import { BombTypes, Characters, COLS, HEIGHT, LevelOptions, ROWS, TileType, WIDTH } from '../core/constants.js';
+import { BombTypes, BossTypes, Characters, COLS, HEIGHT, LevelOptions, ROWS, TileType, WIDTH } from '../core/constants.js';
 import { createBombSheetTextures } from '../core/BombTextureFactory.js';
 import { TileMap } from '../models/TileMap.js';
 import { multiplayer } from '../services/MultiplayerService.js';
@@ -325,7 +325,8 @@ export class SelectionScene extends Phaser.Scene {
         this.mapPreviewGraphics.fillCircle(startX + object.x * cell + cell / 2, startY + object.y * cell + cell / 2, 5);
       }
       if (object.kind === 'boss') {
-        this.mapPreviewGraphics.fillStyle(0x991b1b, 1);
+        const bossType = BossTypes.find((type) => type.id === object.bossType) || BossTypes[0];
+        this.mapPreviewGraphics.fillStyle(bossType.id === 'eagle' ? 0x2563eb : 0x991b1b, 1);
         this.mapPreviewGraphics.fillRect(startX + object.x * cell, startY + object.y * cell, cell * 2 - 1, cell * 2 - 1);
       }
     });

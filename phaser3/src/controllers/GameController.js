@@ -710,6 +710,7 @@ export class GameController {
       })),
       bosses: this.model.bosses.map((boss) => ({
         id: boss.id,
+        bossType: boss.type?.id,
         x: boss.gridX,
         y: boss.gridY,
         direction: boss.direction,
@@ -719,6 +720,7 @@ export class GameController {
       boss: this.model.boss ? {
         x: this.model.boss.gridX,
         y: this.model.boss.gridY,
+        bossType: this.model.boss.type?.id,
         direction: this.model.boss.direction,
         health: this.model.boss.health,
         alive: this.model.boss.isAlive()
@@ -756,6 +758,7 @@ export class GameController {
       if (!boss) return;
 
       boss.setGridPosition(bossState.x, bossState.y);
+      boss.type = this.model.resolveBossType?.(bossState.bossType) || boss.type;
       boss.setDirection(bossState.direction || boss.direction);
       boss.health = bossState.health;
       if (!bossState.alive) boss.destroy();

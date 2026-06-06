@@ -70,6 +70,33 @@ export const BossBombType = Object.freeze({
   explosionStyle: 'cross'
 });
 
+export const BossTypes = Object.freeze([
+  {
+    id: 'pirate',
+    name: 'Pirate Boss',
+    sprites: {
+      down: '../res/Boss/boss_update_down.png',
+      up: '../res/Boss/boss_update_up.png',
+      left: '../res/Boss/boss_update_left.png',
+      right: '../res/Boss/boss_update_right.png',
+      fire: '../res/Boss/boss_update_fire.png',
+      dead: '../res/Boss/boss_update_dead.png'
+    }
+  },
+  {
+    id: 'eagle',
+    name: 'Eagle Boss',
+    sprites: {
+      down: '../res/Boss/eagle_down.png',
+      up: '../res/Boss/eagle_up.png',
+      left: '../res/Boss/eagle_left.png',
+      right: '../res/Boss/eagle_right.png',
+      fire: '../res/Boss/eagle_fire.png',
+      dead: '../res/Boss/eagle_dead.png'
+    }
+  }
+]);
+
 export const LevelOptions = Object.freeze([
   { level: 1, name: 'Pirate 1', theme: 'Pirate Map' },
   { level: 2, name: 'Pirate 2', theme: 'Pirate Map' },

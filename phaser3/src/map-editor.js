@@ -1,12 +1,16 @@
+import { BossTypes } from './core/constants.js';
+
 const COLS = 26;
 const ROWS = 13;
 const Tiles = new Set(['.', '#', 'C', 'W']);
+const DefaultBossType = BossTypes[0];
 
 const board = document.querySelector('#board');
 const output = document.querySelector('#layout-output');
 const statusText = document.querySelector('#status');
 const tools = Array.from(document.querySelectorAll('.tool'));
 const objectTools = Array.from(document.querySelectorAll('.object-tool'));
+const bossTypeInput = document.querySelector('#boss-type');
 const mapTypeInput = document.querySelector('#map-type');
 const mapNameInput = document.querySelector('#map-name');
 const savedMaps = document.querySelector('#saved-maps');
@@ -472,6 +476,20 @@ function selectUploadedAsset(assetId) {
   setStatus('Click map to place selected asset.');
 }
 
+function renderBossTypeOptions() {
+  bossTypeInput.innerHTML = '';
+  BossTypes.forEach((bossType) => {
+    const option = document.createElement('option');
+    option.value = bossType.id;
+    option.textContent = bossType.name;
+    bossTypeInput.appendChild(option);
+  });
+}
+
+function getBossType(typeId) {
+  return BossTypes.find((bossType) => bossType.id === typeId) || DefaultBossType;
+}
+
 function setActiveTool(tool) {
   tools.forEach((item) => item.classList.toggle('active', item === tool));
   objectTools.forEach((item) => item.classList.toggle('active', item === tool));
@@ -485,9 +503,17 @@ function placeObject(x, y) {
 
   if (currentMode === 'boss') {
     objects = objects.filter((object) => object.kind !== 'boss');
-    objects.push({ kind: 'boss', x: Math.min(x, COLS - 2), y: Math.min(y, ROWS - 2), width: 2, height: 2 });
+    const bossType = getBossType(bossTypeInput.value);
+    objects.push({
+      kind: 'boss',
+      bossType: bossType.id,
+      x: Math.min(x, COLS - 2),
+      y: Math.min(y, ROWS - 2),
+      width: 2,
+      height: 2
+    });
     renderBoard();
-    setStatus('Boss position set.');
+    setStatus(`${bossType.name} position set.`);
     return;
   }
 
@@ -531,9 +557,10 @@ function renderObjects() {
     marker.className = `cell-object ${object.kind === 'boss' ? 'boss-object' : object.kind === 'enemy' ? 'enemy-object' : 'asset-object'}`;
     marker.dataset.objectIndex = String(index);
     if (object.kind === 'boss') {
+      const bossType = getBossType(object.bossType || object.type);
       const image = document.createElement('img');
-      image.src = '../res/Boss/boss_update_down.png';
-      image.alt = 'Boss';
+      image.src = bossType.sprites.down;
+      image.alt = bossType.name;
       marker.appendChild(image);
     }
     if (object.kind === 'enemy') {
@@ -608,13 +635,21 @@ function objectContainsCell(object, x, y) {
 function objectLabel(object) {
   if (!object) return 'Object';
   const size = `${object.width || 1}x${object.height || 1}`;
-  if (object.kind === 'boss') return `Boss ${size} (${object.x},${object.y})`;
+  if (object.kind === 'boss') return `${getBossType(object.bossType || object.type).name} ${size} (${object.x},${object.y})`;
   if (object.kind === 'enemy') return `Enemy (${object.x},${object.y})`;
   return `${object.name || 'Asset'} (${object.x},${object.y})`;
 }
 
 function exportObjects() {
-  return objects.map((object) => ({ ...object }));
+  return objects.map((object) => {
+    if (object.kind !== 'boss') return { ...object };
+    return {
+      ...object,
+      bossType: getBossType(object.bossType || object.type).id,
+      width: object.width || 2,
+      height: object.height || 2
+    };
+  });
 }
 
 tools.forEach((tool) => {
@@ -634,7 +669,7 @@ objectTools.forEach((tool) => {
     setActiveTool(tool);
     renderUploadedAssets();
     if (currentMode === 'boss') {
-      setStatus('Click map to place 2x2 boss.');
+      setStatus(`Click map to place 2x2 ${getBossType(bossTypeInput.value).name}.`);
     } else if (currentMode === 'enemy') {
       setStatus('Click map to place enemy.');
     } else {
@@ -654,9 +689,13 @@ document.querySelector('#copy-layout').addEventListener('click', copyLayout);
 document.querySelector('#import-layout').addEventListener('click', importLayout);
 document.querySelector('#save-map').addEventListener('click', saveMap);
 assetUpload.addEventListener('change', () => uploadAssets(assetUpload.files));
+bossTypeInput.addEventListener('change', () => {
+  if (currentMode === 'boss') setStatus(`Click map to place 2x2 ${getBossType(bossTypeInput.value).name}.`);
+});
 mapTypeInput.addEventListener('change', renderBoard);
 mapNameInput.addEventListener('input', updateOutput);
 
+renderBossTypeOptions();
 renderBoard();
 fetchSavedMaps();
 renderUploadedAssets();

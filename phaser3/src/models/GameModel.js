@@ -1,4 +1,4 @@
-import { BombTypes, BossBombType, Characters, DIRS, TileType } from '../core/constants.js';
+import { BombTypes, BossBombType, BossTypes, Characters, DIRS, TileType } from '../core/constants.js';
 import { GridMath } from '../core/GridMath.js';
 import { Bomb } from '../entities/Bomb.js';
 import { Boss } from '../entities/Boss.js';
@@ -57,6 +57,7 @@ const FOREST_BOSS_SPAWN_HINTS = [
   { x: 20, y: 9 }
 ];
 const BASE_ENEMY_COUNT = 4;
+const DEFAULT_BOSS_TYPE = BossTypes[0];
 
 export class GameModel {
   constructor(options = {}) {
@@ -99,7 +100,7 @@ export class GameModel {
   spawnEnemies() {
     const customBoss = this.customMap?.objects?.find((object) => object.kind === 'boss');
     if (customBoss) {
-      this.spawnBoss({ x: customBoss.x, y: customBoss.y });
+      this.spawnBoss({ x: customBoss.x, y: customBoss.y, bossType: customBoss.bossType || customBoss.type });
     }
     this.spawnLevelBosses();
 
@@ -190,11 +191,15 @@ export class GameModel {
 
   spawnBoss(spawn = BOSS_SPAWN) {
     const pos = this.findNearestBossArea(spawn.x, spawn.y);
-    const boss = new Boss(pos.x, pos.y, 1.2 * this.speedMultiplier);
+    const boss = new Boss(pos.x, pos.y, 1.2 * this.speedMultiplier, this.resolveBossType(spawn.bossType));
     boss.id = `boss-${this.bosses.length}`;
     this.bosses.push(boss);
     this.boss = this.bosses[0] || null;
     return boss;
+  }
+
+  resolveBossType(typeId) {
+    return BossTypes.find((type) => type.id === typeId) || DEFAULT_BOSS_TYPE;
   }
 
   getBossOccupiedKeys() {
