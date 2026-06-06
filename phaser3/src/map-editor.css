@@ -89,19 +89,19 @@ button:hover {
 }
 
 .floor {
-  background: #b98d3a;
+  background: #b98d3a url("../../res/land.png") center / cover;
 }
 
 .wall {
-  background: #e5e7eb;
+  background: #e5e7eb url("../../res/boxcot.png") center / cover;
 }
 
 .crate {
-  background: #d08b2f;
+  background: #d08b2f url("../../res/boxgo3.png") center / cover;
 }
 
 .water {
-  background: #38bdf8;
+  background: #38bdf8 url("../../res/snow.png") center / cover;
 }
 
 .workspace {
@@ -134,22 +134,29 @@ button:hover {
   border: 0;
   border-radius: 0;
   padding: 0;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
 }
 
 .cell[data-tile="."] {
-  background: #b98d3a;
+  background-color: #b98d3a;
+  background-image: url("../../res/land.png");
 }
 
 .cell[data-tile="#"] {
-  background: #e5e7eb;
+  background-color: #e5e7eb;
+  background-image: url("../../res/boxcot.png");
 }
 
 .cell[data-tile="C"] {
-  background: #d08b2f;
+  background-color: #d08b2f;
+  background-image: url("../../res/boxgo3.png");
 }
 
 .cell[data-tile="W"] {
-  background: #38bdf8;
+  background-color: #38bdf8;
+  background-image: url("../../res/snow.png");
 }
 
 .cell:hover {
@@ -162,6 +169,45 @@ button:hover {
   border-radius: 8px;
   background: #111827;
   padding: 12px;
+}
+
+.asset-gallery {
+  margin-bottom: 14px;
+}
+
+.asset-gallery h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.asset-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+figure {
+  margin: 0;
+  min-width: 0;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  background: #020617;
+  padding: 6px;
+  text-align: center;
+}
+
+figure img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto 4px;
+}
+
+figcaption {
+  color: #cbd5e1;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .actions {
