@@ -421,7 +421,7 @@ export class GameController {
   handleEnemyMove(time) {
     if (time < this.enemyStepTime) return;
     const speed = this.model.enemies[0]?.speed || 1;
-    this.enemyStepTime = time + Math.round(180 / speed);
+    this.enemyStepTime = time + Math.round(300 / speed);
 
     this.model.enemies.forEach((enemy) => {
       if (!enemy.isAlive()) return;
