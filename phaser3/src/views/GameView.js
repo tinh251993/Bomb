@@ -129,8 +129,8 @@ export class GameView {
     const boss = this.model.boss;
     if (!boss) return;
 
-    const pos = GridMath.toWorld(boss.gridX, boss.gridY);
-    const sprite = this.scene.add.sprite(pos.x, pos.y, BossTextures.down).setDisplaySize(96, 112);
+    const pos = this.bossWorldPosition(boss);
+    const sprite = this.scene.add.sprite(pos.x, pos.y, BossTextures.down).setDisplaySize(TILE * 2, TILE * 2);
     this.updateSpriteDepth(sprite);
     boss.attachSprite(sprite);
   }
@@ -303,7 +303,7 @@ export class GameView {
   }
 
   moveBoss(boss) {
-    const pos = GridMath.toWorld(boss.gridX, boss.gridY);
+    const pos = this.bossWorldPosition(boss);
     this.scene.tweens.add({
       targets: boss.sprite,
       x: pos.x,
@@ -319,7 +319,7 @@ export class GameView {
     const boss = this.model.boss;
     if (!boss?.sprite) return;
 
-    const pos = GridMath.toWorld(boss.gridX, boss.gridY);
+    const pos = this.bossWorldPosition(boss);
     boss.sprite.setPosition(pos.x, pos.y);
     boss.sprite.setVisible(boss.isAlive());
     this.updateSpriteDepth(boss.sprite);
@@ -471,5 +471,13 @@ export class GameView {
     if (direction === 'left') return BossTextures.left;
     if (direction === 'right') return BossTextures.right;
     return BossTextures.down;
+  }
+
+  bossWorldPosition(boss) {
+    const pos = GridMath.toWorld(boss.gridX, boss.gridY);
+    return {
+      x: pos.x + TILE / 2,
+      y: pos.y + TILE / 2
+    };
   }
 }

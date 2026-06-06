@@ -12,6 +12,16 @@ export class Boss extends Character {
     this.dead = false;
     this.nextChaseAt = 0;
     this.chaseUntil = 0;
+    this.size = 2;
+  }
+
+  getOccupiedCells(x = this.gridX, y = this.gridY) {
+    return [
+      { x, y },
+      { x: x + 1, y },
+      { x, y: y + 1 },
+      { x: x + 1, y: y + 1 }
+    ];
   }
 
   chooseDirection(choices) {

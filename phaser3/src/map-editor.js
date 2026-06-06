@@ -6,6 +6,10 @@ const board = document.querySelector('#board');
 const output = document.querySelector('#layout-output');
 const statusText = document.querySelector('#status');
 const tools = Array.from(document.querySelectorAll('.tool'));
+const mapTypeInput = document.querySelector('#map-type');
+const mapNameInput = document.querySelector('#map-name');
+const savedMaps = document.querySelector('#saved-maps');
+const StorageKey = 'bombOnline.savedMaps';
 
 let currentTile = '.';
 let isPainting = false;
@@ -56,7 +60,7 @@ function paintCell(x, y) {
 
 function updateOutput() {
   const rows = grid.map((row) => `  '${row.join('')}'`);
-  output.value = `const LEVEL_CUSTOM_LAYOUT = [\n${rows.join(',\n')}\n];`;
+  output.value = `const ${layoutConstName()} = [\n${rows.join(',\n')}\n];`;
 }
 
 function setStatus(message) {
@@ -128,6 +132,92 @@ function importLayout() {
   }
 }
 
+function layoutConstName() {
+  const name = normalizeMapName(mapNameInput.value || 'custom');
+  return `${name.toUpperCase()}_LAYOUT`;
+}
+
+function normalizeMapName(value) {
+  return String(value || 'custom')
+    .trim()
+    .replace(/[^a-zA-Z0-9_]+/g, '_')
+    .replace(/^_+|_+$/g, '') || 'custom';
+}
+
+function readSavedMaps() {
+  try {
+    return JSON.parse(localStorage.getItem(StorageKey) || '[]');
+  } catch (_error) {
+    return [];
+  }
+}
+
+function writeSavedMaps(maps) {
+  localStorage.setItem(StorageKey, JSON.stringify(maps));
+}
+
+function saveMap() {
+  const type = mapTypeInput.value;
+  const name = normalizeMapName(mapNameInput.value);
+  const layout = grid.map((row) => row.join(''));
+  const maps = readSavedMaps();
+  const existingIndex = maps.findIndex((map) => map.type === type && map.name === name);
+  const entry = {
+    type,
+    name,
+    layout,
+    updatedAt: new Date().toISOString()
+  };
+
+  if (existingIndex >= 0) {
+    maps[existingIndex] = entry;
+  } else {
+    maps.unshift(entry);
+  }
+
+  writeSavedMaps(maps);
+  renderSavedMaps();
+  updateOutput();
+  setStatus(`Saved ${type}/${name}.`);
+}
+
+function loadSavedMap(map) {
+  mapTypeInput.value = map.type;
+  mapNameInput.value = map.name;
+  grid = parseLayout(map.layout.map((row) => `'${row}'`).join('\n'));
+  renderBoard();
+  setStatus(`Loaded ${map.type}/${map.name}.`);
+}
+
+function deleteSavedMap(map) {
+  const maps = readSavedMaps().filter((item) => item.type !== map.type || item.name !== map.name);
+  writeSavedMaps(maps);
+  renderSavedMaps();
+  setStatus(`Deleted ${map.type}/${map.name}.`);
+}
+
+function renderSavedMaps() {
+  const maps = readSavedMaps();
+  savedMaps.innerHTML = '';
+  maps.forEach((map) => {
+    const row = document.createElement('div');
+    row.className = 'saved-map';
+
+    const loadButton = document.createElement('button');
+    loadButton.type = 'button';
+    loadButton.textContent = `${map.type}/${map.name}`;
+    loadButton.addEventListener('click', () => loadSavedMap(map));
+
+    const deleteButton = document.createElement('button');
+    deleteButton.type = 'button';
+    deleteButton.textContent = 'Delete';
+    deleteButton.addEventListener('click', () => deleteSavedMap(map));
+
+    row.append(loadButton, deleteButton);
+    savedMaps.appendChild(row);
+  });
+}
+
 tools.forEach((tool) => {
   tool.addEventListener('click', () => {
     currentTile = tool.dataset.tile;
@@ -144,5 +234,8 @@ document.querySelector('#clear-map').addEventListener('click', clearMap);
 document.querySelector('#random-boxes').addEventListener('click', randomBoxes);
 document.querySelector('#copy-layout').addEventListener('click', copyLayout);
 document.querySelector('#import-layout').addEventListener('click', importLayout);
+document.querySelector('#save-map').addEventListener('click', saveMap);
+mapNameInput.addEventListener('input', updateOutput);
 
 renderBoard();
+renderSavedMaps();

@@ -13,6 +13,8 @@ body {
 
 button,
 textarea,
+input,
+select,
 a {
   font: inherit;
 }
@@ -175,7 +177,8 @@ button:hover {
   margin-bottom: 14px;
 }
 
-.asset-gallery h2 {
+.asset-gallery h2,
+.save-panel h2 {
   margin: 0 0 8px;
   font-size: 16px;
 }
@@ -208,6 +211,60 @@ figcaption {
   color: #cbd5e1;
   font-size: 12px;
   white-space: nowrap;
+}
+
+.save-panel {
+  margin-bottom: 14px;
+}
+
+.save-fields {
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.save-fields label {
+  margin: 0;
+  font-size: 13px;
+}
+
+input,
+select {
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid #475569;
+  border-radius: 6px;
+  background: #020617;
+  color: #f8fafc;
+  padding: 6px 8px;
+}
+
+.wide-action {
+  width: 100%;
+  min-height: 38px;
+  margin-bottom: 8px;
+  border-color: #22c55e;
+}
+
+.saved-maps {
+  display: grid;
+  gap: 6px;
+  max-height: 126px;
+  overflow: auto;
+}
+
+.saved-map {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px;
+}
+
+.saved-map button {
+  min-height: 30px;
+  padding: 4px 8px;
+  text-align: left;
 }
 
 .actions {

@@ -122,8 +122,19 @@ export class GameModel {
   }
 
   spawnBoss(spawn = BOSS_SPAWN) {
-    const pos = this.map.findNearestOpen(spawn.x, spawn.y);
+    const pos = this.findNearestBossArea(spawn.x, spawn.y);
     this.boss = new Boss(pos.x, pos.y);
+  }
+
+  findNearestBossArea(startX, startY) {
+    for (let radius = 0; radius < this.map.grid[0].length; radius++) {
+      for (let y = Math.max(1, startY - radius); y < Math.min(this.map.grid.length - 2, startY + radius + 1); y++) {
+        for (let x = Math.max(1, startX - radius); x < Math.min(this.map.grid[y].length - 2, startX + radius + 1); x++) {
+          if (this.canBossOccupy(x, y)) return { x, y };
+        }
+      }
+    }
+    return this.map.findNearestOpen(startX, startY);
   }
 
   enableInfiniteLives() {
@@ -316,8 +327,9 @@ export class GameModel {
   damageBossIn(cells) {
     if (!this.boss || !this.boss.isAlive()) return false;
 
+    const bossCells = new Set(this.boss.getOccupiedCells().map((cell) => GridMath.key(cell.x, cell.y)));
     const hit = cells.some((cell) => {
-      return Math.abs(cell.x - this.boss.gridX) <= 1 && Math.abs(cell.y - this.boss.gridY) <= 1;
+      return bossCells.has(GridMath.key(cell.x, cell.y));
     });
     if (!hit) return false;
 
@@ -345,6 +357,17 @@ export class GameModel {
 
   isWalkable(x, y) {
     return this.map.isEmpty(x, y) && !this.bombs.has(GridMath.key(x, y));
+  }
+
+  canBossOccupy(x, y) {
+    if (!this.boss) {
+      return this.map.isEmpty(x, y)
+        && this.map.isEmpty(x + 1, y)
+        && this.map.isEmpty(x, y + 1)
+        && this.map.isEmpty(x + 1, y + 1);
+    }
+
+    return this.boss.getOccupiedCells(x, y).every((cell) => this.isWalkable(cell.x, cell.y));
   }
 
   isPlayerWalkable(x, y) {

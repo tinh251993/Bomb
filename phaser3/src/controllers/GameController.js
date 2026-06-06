@@ -305,13 +305,13 @@ export class GameController {
     if (!boss?.isAlive() || time < this.bossStepTime) return;
     this.bossStepTime = time + Math.round(260 / boss.speed);
 
-    const choices = DIRS.filter((dir) => this.model.isWalkable(boss.gridX + dir.x, boss.gridY + dir.y));
+    const choices = DIRS.filter((dir) => this.model.canBossOccupy(boss.gridX + dir.x, boss.gridY + dir.y));
     if (choices.length === 0) return;
 
     const chaseDir = this.getChaseDirection(boss, time, 15000, 8000);
     if (chaseDir) {
       boss.dir = chaseDir;
-    } else if (!this.model.isWalkable(boss.gridX + boss.dir.x, boss.gridY + boss.dir.y) || Phaser.Math.Between(0, 100) < 34) {
+    } else if (!this.model.canBossOccupy(boss.gridX + boss.dir.x, boss.gridY + boss.dir.y) || Phaser.Math.Between(0, 100) < 34) {
       boss.chooseDirection(choices);
     }
 
@@ -368,7 +368,7 @@ export class GameController {
         const nextY = current.y + dir.y;
         const key = GridMath.key(nextX, nextY);
         if (visited.has(key)) continue;
-        if (!this.model.isWalkable(nextX, nextY) && !(nextX === targetX && nextY === targetY)) continue;
+        if (!this.canActorMoveTo(startX, startY, nextX, nextY, targetX, targetY)) continue;
 
         const firstDir = current.firstDir || dir;
         if (nextX === targetX && nextY === targetY) return firstDir;
@@ -379,6 +379,14 @@ export class GameController {
     }
 
     return null;
+  }
+
+  canActorMoveTo(startX, startY, nextX, nextY, targetX, targetY) {
+    const boss = this.model.boss;
+    const actorIsBoss = boss?.gridX === startX && boss?.gridY === startY;
+    if (actorIsBoss) return this.model.canBossOccupy(nextX, nextY);
+    if (nextX === targetX && nextY === targetY) return true;
+    return this.model.isWalkable(nextX, nextY);
   }
 
   directionFromDelta(delta) {
@@ -564,7 +572,8 @@ export class GameController {
     const boss = this.model.boss;
     if (player.isDead() || player.isInvincible(this.scene.time.now) || !boss?.isAlive()) return;
 
-    const hit = Phaser.Math.Distance.Between(player.sprite.x, player.sprite.y, boss.sprite.x, boss.sprite.y) < 46;
+    const hit = boss.getOccupiedCells().some((cell) => cell.x === player.gridX && cell.y === player.gridY)
+      || Phaser.Math.Distance.Between(player.sprite.x, player.sprite.y, boss.sprite.x, boss.sprite.y) < 70;
     if (!hit) return;
 
     this.killLocalPlayer();

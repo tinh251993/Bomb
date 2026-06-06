@@ -43,6 +43,22 @@
           </div>
         </section>
 
+        <section class="save-panel" aria-label="Save map">
+          <h2>Save Map</h2>
+          <div class="save-fields">
+            <label for="map-type">Loại map</label>
+            <select id="map-type">
+              <option value="pirate">pirate</option>
+              <option value="forest">forest</option>
+            </select>
+
+            <label for="map-name">Tên map</label>
+            <input id="map-name" type="text" value="pirate1" placeholder="pirate1, forest1">
+          </div>
+          <button id="save-map" class="wide-action">Save Map</button>
+          <div id="saved-maps" class="saved-maps"></div>
+        </section>
+
         <div class="actions">
           <button id="fill-border">Fill Border</button>
           <button id="clear-map">Clear</button>
