@@ -177,6 +177,9 @@ export class SelectionScene extends Phaser.Scene {
   renderMapOptions() {
     if (!this.mapSelect?.node) return;
 
+    const selectedMapKey = this.selectedCustomMap
+      ? `${this.selectedCustomMap.type}/${this.selectedCustomMap.name}`
+      : null;
     const currentValue = this.mapValue();
     this.mapOptions = this.createMapOptions();
     this.mapSelect.node.innerHTML = '';
@@ -186,9 +189,14 @@ export class SelectionScene extends Phaser.Scene {
       item.textContent = option.label;
       this.mapSelect.node.appendChild(item);
     });
-    this.mapSelect.node.value = this.mapOptions.some((option) => option.value === currentValue)
+    const sameCustomMap = this.mapOptions.find((option) => {
+      return selectedMapKey
+        && option.customMap
+        && `${option.customMap.type}/${option.customMap.name}` === selectedMapKey;
+    });
+    this.mapSelect.node.value = sameCustomMap?.value || (this.mapOptions.some((option) => option.value === currentValue)
       ? currentValue
-      : this.mapValue();
+      : this.mapValue());
   }
 
   addLevelGroupButton(x, y, group, label) {
@@ -432,7 +440,8 @@ export class SelectionScene extends Phaser.Scene {
     if (!room || !this.roomText) return;
 
     const roomLevel = LevelOptions.find((option) => option.level === room.selectedLevel);
-    if (roomLevel && (roomLevel.level !== this.selectedLevel.level || room.customMap !== this.selectedCustomMap)) {
+    const shouldMirrorRoomMap = !multiplayer.isHost() || room.phase === 'loading' || room.phase === 'playing';
+    if (shouldMirrorRoomMap && roomLevel && (roomLevel.level !== this.selectedLevel.level || !this.sameMap(room.customMap, this.selectedCustomMap))) {
       this.selectedLevel = roomLevel;
       this.selectedCustomMap = room.customMap || null;
       this.activeLevelGroup = this.levelGroupFor(roomLevel);
@@ -447,6 +456,12 @@ export class SelectionScene extends Phaser.Scene {
     const ping = this.latencyMs === null ? 'Ping -- ms' : `Ping ${this.latencyMs} ms`;
     this.roomText.setText(`Room ${room.code}   ${ping}   Map ${room.customMap?.name || this.selectedMapName()}\n${lines.join('   ')}`);
     this.actionLabel?.setText(multiplayer.isHost() ? 'START ROOM' : 'READY');
+  }
+
+  sameMap(left, right) {
+    if (!left && !right) return true;
+    if (!left || !right) return false;
+    return left.type === right.type && left.name === right.name;
   }
 
   shutdown() {
