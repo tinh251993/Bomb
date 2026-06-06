@@ -53,6 +53,7 @@ export class GameView {
     load.audio('bomb-sfx', '../res/sound/bomb_bang.wav');
     load.audio('item-sfx', '../res/sound/item.wav');
     load.audio('lose-sfx', '../res/sound/bomber_die.wav');
+    load.audio('win-sfx', '../res/sound/bomDrink.wav');
     load.audio('game-music', '../res/sound/05 Elder Kettle.ogg');
   }
 
@@ -219,11 +220,11 @@ export class GameView {
     boss.sprite.setTexture(this.bossTexture(direction));
   }
 
-  playBossFire(boss = this.model.boss) {
+  playBossFire(boss = this.model.boss, duration = 360) {
     if (!boss?.sprite) return;
 
     boss.sprite.setTexture(BossTextures.fire);
-    this.scene.time.delayedCall(360, () => {
+    this.scene.time.delayedCall(duration, () => {
       if (boss.sprite?.active) this.setBossDirection(boss.direction, boss);
     });
   }

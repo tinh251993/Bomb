@@ -481,12 +481,18 @@ export class GameController {
 
       if (!boss.nextThrowAt) {
         boss.nextThrowAt = time + 6000;
+        boss.isPreparingThrow = false;
         return;
+      }
+
+      if (!boss.isPreparingThrow && time >= boss.nextThrowAt - 1000) {
+        boss.isPreparingThrow = true;
+        this.view.playBossFire(boss, 1000);
       }
       if (time < boss.nextThrowAt) return;
 
       boss.nextThrowAt = time + 6000;
-      this.view.playBossFire(boss);
+      boss.isPreparingThrow = false;
       this.model.getRandomBossBombSpots(8).forEach((spot) => {
         const bomb = this.model.placeBossBomb(spot.x, spot.y, boss);
         if (!bomb) return;
@@ -664,7 +670,7 @@ export class GameController {
 
   endGame(won) {
     this.model.endGame(won);
-    if (!won) this.scene.sound.play('lose-sfx', { volume: 0.35 });
+    this.scene.sound.play(won ? 'win-sfx' : 'lose-sfx', { volume: won ? 0.42 : 0.35 });
     this.view.showEndMessage(won);
   }
 
