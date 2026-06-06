@@ -78,9 +78,15 @@ button:hover {
   padding: 8px 12px;
 }
 
-.tool.active {
+.tool.active,
+.object-tool.active {
   border-color: #facc15;
   background: #334155;
+}
+
+.object-tool {
+  min-height: 38px;
+  padding: 8px 12px;
 }
 
 .swatch {
@@ -131,6 +137,7 @@ button:hover {
 }
 
 .cell {
+  position: relative;
   width: 32px;
   height: 32px;
   border: 0;
@@ -139,6 +146,37 @@ button:hover {
   background-position: center;
   background-size: cover;
   background-repeat: no-repeat;
+}
+
+.cell-object {
+  position: absolute;
+  inset: 2px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.cell-object img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.cell-object.boss-object {
+  inset: 0;
+  width: 65px;
+  height: 65px;
+  border: 2px solid #ef4444;
+  background: rgba(239, 68, 68, 0.18);
+}
+
+.cell-object.boss-object::after {
+  content: "BOSS";
+  color: #fef2f2;
+  font-size: 10px;
+  font-weight: 700;
+  text-shadow: 0 1px 2px #000;
 }
 
 .cell[data-tile="."] {
@@ -234,6 +272,11 @@ figcaption {
   border-radius: 6px;
   background: #020617;
   padding: 8px;
+}
+
+.uploaded-asset.selected {
+  border-color: #facc15;
+  background: #1f2937;
 }
 
 .uploaded-meta {

@@ -6,6 +6,7 @@ const board = document.querySelector('#board');
 const output = document.querySelector('#layout-output');
 const statusText = document.querySelector('#status');
 const tools = Array.from(document.querySelectorAll('.tool'));
+const objectTools = Array.from(document.querySelectorAll('.object-tool'));
 const mapTypeInput = document.querySelector('#map-type');
 const mapNameInput = document.querySelector('#map-name');
 const savedMaps = document.querySelector('#saved-maps');
@@ -15,8 +16,11 @@ const StorageKey = 'bombOnline.savedMaps';
 const AssetStorageKey = 'bombOnline.uploadedAssets';
 
 let currentTile = '.';
+let currentMode = 'tile';
+let selectedAssetId = null;
 let isPainting = false;
 let grid = createEmptyGrid();
+let objects = [];
 
 function createEmptyGrid() {
   return Array.from({ length: ROWS }, (_row, y) => {
@@ -39,15 +43,20 @@ function renderBoard() {
       cell.title = `${x},${y} ${grid[y][x]}`;
       cell.addEventListener('pointerdown', (event) => {
         event.preventDefault();
-        isPainting = true;
-        paintCell(x, y);
+        if (currentMode === 'tile') {
+          isPainting = true;
+          paintCell(x, y);
+          return;
+        }
+        placeObject(x, y);
       });
       cell.addEventListener('pointerenter', () => {
-        if (isPainting) paintCell(x, y);
+        if (currentMode === 'tile' && isPainting) paintCell(x, y);
       });
       board.appendChild(cell);
     }
   }
+  renderObjects();
   updateOutput();
 }
 
@@ -63,7 +72,7 @@ function paintCell(x, y) {
 
 function updateOutput() {
   const rows = grid.map((row) => `  '${row.join('')}'`);
-  output.value = `const ${layoutConstName()} = [\n${rows.join(',\n')}\n];`;
+  output.value = `const ${layoutConstName()} = [\n${rows.join(',\n')}\n];\n\nconst ${objectConstName()} = ${JSON.stringify(exportObjects(), null, 2)};`;
 }
 
 function setStatus(message) {
@@ -98,6 +107,7 @@ function fillBorder() {
 
 function clearMap() {
   grid = createEmptyGrid();
+  objects = [];
   renderBoard();
   setStatus('Map cleared.');
 }
@@ -140,6 +150,11 @@ function layoutConstName() {
   return `${name.toUpperCase()}_LAYOUT`;
 }
 
+function objectConstName() {
+  const name = normalizeMapName(mapNameInput.value || 'custom');
+  return `${name.toUpperCase()}_OBJECTS`;
+}
+
 function normalizeMapName(value) {
   return String(value || 'custom')
     .trim()
@@ -169,6 +184,7 @@ function saveMap() {
     type,
     name,
     layout,
+    objects: exportObjects(),
     updatedAt: new Date().toISOString()
   };
 
@@ -188,6 +204,7 @@ function loadSavedMap(map) {
   mapTypeInput.value = map.type;
   mapNameInput.value = map.name;
   grid = parseLayout(map.layout.map((row) => `'${row}'`).join('\n'));
+  objects = Array.isArray(map.objects) ? map.objects : [];
   renderBoard();
   setStatus(`Loaded ${map.type}/${map.name}.`);
 }
@@ -282,6 +299,7 @@ function renderUploadedAssets() {
   assets.forEach((asset) => {
     const row = document.createElement('div');
     row.className = 'uploaded-asset';
+    row.classList.toggle('selected', asset.id === selectedAssetId);
 
     const meta = document.createElement('div');
     meta.className = 'uploaded-meta';
@@ -300,6 +318,7 @@ function renderUploadedAssets() {
     const preview = document.createElement('div');
     preview.className = 'uploaded-preview';
     preview.append(createPreviewImage(asset, 'preview-tile'), createPreviewImage(asset, 'preview-large'));
+    preview.addEventListener('click', () => selectUploadedAsset(asset.id));
 
     row.append(meta, preview);
     uploadedAssets.appendChild(row);
@@ -316,14 +335,98 @@ function createPreviewImage(asset, className) {
 
 function deleteUploadedAsset(assetId) {
   writeUploadedAssets(readUploadedAssets().filter((asset) => asset.id !== assetId));
+  objects = objects.filter((object) => object.assetId !== assetId);
+  if (selectedAssetId === assetId) selectedAssetId = null;
   renderUploadedAssets();
+  renderBoard();
   setStatus('Asset deleted.');
+}
+
+function selectUploadedAsset(assetId) {
+  selectedAssetId = assetId;
+  currentMode = 'asset';
+  setActiveTool(null);
+  renderUploadedAssets();
+  setStatus('Click map to place selected asset.');
+}
+
+function setActiveTool(tool) {
+  tools.forEach((item) => item.classList.toggle('active', item === tool));
+  objectTools.forEach((item) => item.classList.toggle('active', item === tool));
+}
+
+function placeObject(x, y) {
+  if (currentMode === 'erase') {
+    eraseObjectAt(x, y);
+    return;
+  }
+
+  if (currentMode === 'boss') {
+    objects = objects.filter((object) => object.kind !== 'boss');
+    objects.push({ kind: 'boss', x: Math.min(x, COLS - 2), y: Math.min(y, ROWS - 2), width: 2, height: 2 });
+    renderBoard();
+    setStatus('Boss position set.');
+    return;
+  }
+
+  if (currentMode === 'asset' && selectedAssetId) {
+    const asset = readUploadedAssets().find((item) => item.id === selectedAssetId);
+    if (!asset) return;
+    objects.push({ kind: 'asset', assetId: asset.id, name: asset.name, x, y, width: 1, height: 1 });
+    renderBoard();
+    setStatus(`Placed ${asset.name}.`);
+  }
+}
+
+function eraseObjectAt(x, y) {
+  const before = objects.length;
+  objects = objects.filter((object) => {
+    const width = object.width || 1;
+    const height = object.height || 1;
+    return !(x >= object.x && x < object.x + width && y >= object.y && y < object.y + height);
+  });
+  renderBoard();
+  setStatus(before === objects.length ? 'No object at this cell.' : 'Object removed.');
+}
+
+function renderObjects() {
+  const assets = readUploadedAssets();
+  objects.forEach((object) => {
+    const cell = board.querySelector(`[data-x="${object.x}"][data-y="${object.y}"]`);
+    if (!cell) return;
+
+    const marker = document.createElement('span');
+    marker.className = `cell-object ${object.kind === 'boss' ? 'boss-object' : 'asset-object'}`;
+    if (object.kind === 'asset') {
+      const asset = assets.find((item) => item.id === object.assetId);
+      if (!asset) return;
+      marker.appendChild(createPreviewImage(asset, ''));
+    }
+    cell.appendChild(marker);
+  });
+}
+
+function exportObjects() {
+  return objects.map((object) => ({ ...object }));
 }
 
 tools.forEach((tool) => {
   tool.addEventListener('click', () => {
+    currentMode = 'tile';
+    selectedAssetId = null;
     currentTile = tool.dataset.tile;
-    tools.forEach((item) => item.classList.toggle('active', item === tool));
+    setActiveTool(tool);
+    renderUploadedAssets();
+  });
+});
+
+objectTools.forEach((tool) => {
+  tool.addEventListener('click', () => {
+    currentMode = tool.dataset.objectTool;
+    selectedAssetId = null;
+    setActiveTool(tool);
+    renderUploadedAssets();
+    setStatus(currentMode === 'boss' ? 'Click map to place 2x2 boss.' : 'Click object to remove it.');
   });
 });
 
