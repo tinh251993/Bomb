@@ -144,10 +144,11 @@ export class GameModel {
 
   spawnLevelBosses() {
     const targetCount = Math.floor(this.level / 3);
+    const bossTypeId = this.bosses[0]?.type?.id;
     while (this.bosses.length < targetCount) {
       const hints = this.level >= 6 ? FOREST_BOSS_SPAWN_HINTS : BOSS_SPAWN_HINTS;
       const spawn = hints[this.bosses.length] || hints[hints.length - 1];
-      this.spawnBoss(spawn);
+      this.spawnBoss({ ...spawn, bossType: bossTypeId });
     }
   }
 
