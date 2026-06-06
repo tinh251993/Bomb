@@ -218,6 +218,11 @@ export class GameView {
       return;
     }
 
+    if (boss.type?.id === 'eagle') {
+      this.playEagleGroundAnimation(boss, direction);
+      return;
+    }
+
     boss.sprite.stop();
     boss.sprite.setTexture(this.bossTexture(direction, boss));
   }
@@ -343,14 +348,23 @@ export class GameView {
 
   createBossAnimations() {
     const eagleType = BossTypes.find((type) => type.id === 'eagle');
-    if (!eagleType || this.scene.anims.exists('eagle-fly')) return;
+    if (!eagleType) return;
+
+    this.createAnimationOnce('eagle-fly', Array.from({ length: 8 }, (_item, index) => `fly${index + 1}`), 10);
+    this.createAnimationOnce('eagle-ground-down', ['moveDown1', 'moveDown2', 'moveDown3'], 5);
+    this.createAnimationOnce('eagle-ground-up', ['moveUp1', 'moveUp2'], 4);
+    this.createAnimationOnce('eagle-ground-left', ['moveLeft1', 'moveLeft2'], 5);
+    this.createAnimationOnce('eagle-ground-right', ['moveRight1', 'moveRight2'], 5);
+  }
+
+  createAnimationOnce(key, states, frameRate) {
+    const eagleType = BossTypes.find((type) => type.id === 'eagle');
+    if (!eagleType || this.scene.anims.exists(key)) return;
 
     this.scene.anims.create({
-      key: 'eagle-fly',
-      frames: Array.from({ length: 8 }, (_item, index) => ({
-        key: this.bossTextureKey(eagleType, `fly${index + 1}`)
-      })),
-      frameRate: 10,
+      key,
+      frames: states.map((state) => ({ key: this.bossTextureKey(eagleType, state) })),
+      frameRate,
       repeat: -1
     });
   }
@@ -360,6 +374,21 @@ export class GameView {
 
     if (boss.sprite.anims.currentAnim?.key !== 'eagle-fly' || !boss.sprite.anims.isPlaying) {
       boss.sprite.play('eagle-fly');
+    }
+  }
+
+  playEagleGroundAnimation(boss, direction) {
+    if (!boss?.sprite) return;
+
+    const key = {
+      up: 'eagle-ground-up',
+      left: 'eagle-ground-left',
+      right: 'eagle-ground-right',
+      down: 'eagle-ground-down'
+    }[direction] || 'eagle-ground-down';
+
+    if (boss.sprite.anims.currentAnim?.key !== key || !boss.sprite.anims.isPlaying) {
+      boss.sprite.play(key);
     }
   }
 
