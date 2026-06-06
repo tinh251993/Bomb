@@ -11,6 +11,7 @@ export class SelectionScene extends Phaser.Scene {
     this.selectedBombType = BombTypes[0];
     this.selectedLevel = LevelOptions[0];
     this.selectedCustomMap = null;
+    this.serverMaps = [];
     this.mapOptions = [];
     this.mapSelect = null;
     this.characterCards = [];
@@ -162,12 +163,7 @@ export class SelectionScene extends Phaser.Scene {
       'outline: none',
       'padding: 0 10px'
     ].join(';'));
-    this.mapOptions.forEach((option) => {
-      const item = document.createElement('option');
-      item.value = option.value;
-      item.textContent = option.label;
-      this.mapSelect.node.appendChild(item);
-    });
+    this.renderMapOptions();
     this.mapSelect.node.addEventListener('change', () => {
       if (this.isMultiplayer && !multiplayer.isHost()) {
         this.mapSelect.node.value = this.mapValue();
@@ -175,6 +171,24 @@ export class SelectionScene extends Phaser.Scene {
       }
       this.selectMapOption(this.mapSelect.node.value);
     });
+    this.loadServerMaps();
+  }
+
+  renderMapOptions() {
+    if (!this.mapSelect?.node) return;
+
+    const currentValue = this.mapValue();
+    this.mapOptions = this.createMapOptions();
+    this.mapSelect.node.innerHTML = '';
+    this.mapOptions.forEach((option) => {
+      const item = document.createElement('option');
+      item.value = option.value;
+      item.textContent = option.label;
+      this.mapSelect.node.appendChild(item);
+    });
+    this.mapSelect.node.value = this.mapOptions.some((option) => option.value === currentValue)
+      ? currentValue
+      : this.mapValue();
   }
 
   addLevelGroupButton(x, y, group, label) {
@@ -221,11 +235,26 @@ export class SelectionScene extends Phaser.Scene {
   }
 
   readSavedMaps() {
+    if (this.serverMaps.length > 0) return this.serverMaps;
+
     try {
       const maps = JSON.parse(localStorage.getItem('bombOnline.savedMaps') || '[]');
       return Array.isArray(maps) ? maps.filter((map) => Array.isArray(map.layout)) : [];
     } catch (_error) {
       return [];
+    }
+  }
+
+  async loadServerMaps() {
+    try {
+      const response = await fetch('/api/maps');
+      if (!response.ok) throw new Error('Cannot load maps.');
+      const payload = await response.json();
+      this.serverMaps = Array.isArray(payload.maps) ? payload.maps.filter((map) => Array.isArray(map.layout)) : [];
+      this.renderMapOptions();
+      this.refreshSelection();
+    } catch (_error) {
+      this.serverMaps = [];
     }
   }
 

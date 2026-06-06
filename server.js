@@ -1,4 +1,5 @@
 const express = require('express');
+const fs = require('fs');
 const http = require('http');
 const path = require('path');
 const { Server } = require('socket.io');
@@ -10,10 +11,46 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 const rooms = new Map();
+const mapsFile = path.join(__dirname, 'data', 'custom-maps.json');
 
+app.use(express.json({ limit: '1mb' }));
 app.use('/res', express.static(path.join(__dirname, 'res')));
 app.use('/phaser3', express.static(path.join(__dirname, 'phaser3')));
 app.get('/', (_req, res) => res.redirect('/phaser3/'));
+
+app.get('/api/maps', (_req, res) => {
+  res.json({ ok: true, maps: readCustomMaps() });
+});
+
+app.post('/api/maps', (req, res) => {
+  const map = sanitizeCustomMap(req.body);
+  if (!map) return res.status(400).json({ ok: false, message: 'Invalid map.' });
+
+  const maps = readCustomMaps();
+  const existingIndex = maps.findIndex((item) => item.type === map.type && item.name === map.name);
+  const entry = {
+    ...map,
+    updatedAt: new Date().toISOString()
+  };
+
+  if (existingIndex >= 0) {
+    maps[existingIndex] = entry;
+  } else {
+    maps.unshift(entry);
+  }
+
+  writeCustomMaps(maps);
+  res.json({ ok: true, map: entry, maps });
+});
+
+app.delete('/api/maps/:type/:name', (req, res) => {
+  const type = req.params.type === 'forest' ? 'forest' : 'pirate';
+  const name = String(req.params.name || '').slice(0, 40);
+  const maps = readCustomMaps();
+  const nextMaps = maps.filter((map) => map.type !== type || map.name !== name);
+  writeCustomMaps(nextMaps);
+  res.json({ ok: true, maps: nextMaps });
+});
 
 io.on('connection', (socket) => {
   socket.on('ping:check', (_payload, reply) => {
@@ -258,9 +295,24 @@ function sanitizeCustomMap(customMap) {
       y: Number(object.y) || 0,
       width: Number(object.width) || 1,
       height: Number(object.height) || 1,
+      assetId: object.assetId ? String(object.assetId).slice(0, 80) : undefined,
       name: object.name ? String(object.name).slice(0, 80) : undefined
     })) : []
   };
+}
+
+function readCustomMaps() {
+  try {
+    const maps = JSON.parse(fs.readFileSync(mapsFile, 'utf8'));
+    return Array.isArray(maps) ? maps.map(sanitizeCustomMap).filter(Boolean) : [];
+  } catch (_error) {
+    return [];
+  }
+}
+
+function writeCustomMaps(maps) {
+  fs.mkdirSync(path.dirname(mapsFile), { recursive: true });
+  fs.writeFileSync(mapsFile, JSON.stringify(maps, null, 2));
 }
 
 function serializeRoom(room) {

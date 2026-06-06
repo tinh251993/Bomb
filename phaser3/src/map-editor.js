@@ -22,6 +22,7 @@ let selectedAssetId = null;
 let isPainting = false;
 let grid = createEmptyGrid();
 let objects = [];
+let serverMaps = [];
 
 function createEmptyGrid() {
   return Array.from({ length: ROWS }, (_row, y) => {
@@ -241,7 +242,7 @@ function normalizeMapName(value) {
     .replace(/^_+|_+$/g, '') || 'custom';
 }
 
-function readSavedMaps() {
+function readLocalSavedMaps() {
   try {
     return JSON.parse(localStorage.getItem(StorageKey) || '[]');
   } catch (_error) {
@@ -253,11 +254,27 @@ function writeSavedMaps(maps) {
   localStorage.setItem(StorageKey, JSON.stringify(maps));
 }
 
-function saveMap() {
+async function fetchSavedMaps() {
+  try {
+    const response = await fetch('/api/maps');
+    if (!response.ok) throw new Error('Cannot load server maps.');
+    const payload = await response.json();
+    serverMaps = Array.isArray(payload.maps) ? payload.maps : [];
+    renderSavedMaps();
+    return serverMaps;
+  } catch (_error) {
+    serverMaps = readLocalSavedMaps();
+    renderSavedMaps();
+    setStatus('Using local saved maps. Server maps unavailable.');
+    return serverMaps;
+  }
+}
+
+async function saveMap() {
   const type = mapTypeInput.value;
   const name = normalizeMapName(mapNameInput.value);
   const layout = grid.map((row) => row.join(''));
-  const maps = readSavedMaps();
+  const maps = readLocalSavedMaps();
   const existingIndex = maps.findIndex((map) => map.type === type && map.name === name);
   const entry = {
     type,
@@ -274,9 +291,23 @@ function saveMap() {
   }
 
   writeSavedMaps(maps);
-  renderSavedMaps();
   updateOutput();
-  setStatus(`Saved ${type}/${name}.`);
+  try {
+    const response = await fetch('/api/maps', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(entry)
+    });
+    if (!response.ok) throw new Error('Server save failed.');
+    const payload = await response.json();
+    serverMaps = Array.isArray(payload.maps) ? payload.maps : maps;
+    renderSavedMaps();
+    setStatus(`Saved ${type}/${name} to server.`);
+  } catch (error) {
+    serverMaps = maps;
+    renderSavedMaps();
+    setStatus(`${error.message} Saved locally only.`);
+  }
 }
 
 function loadSavedMap(map) {
@@ -288,15 +319,27 @@ function loadSavedMap(map) {
   setStatus(`Loaded ${map.type}/${map.name}.`);
 }
 
-function deleteSavedMap(map) {
-  const maps = readSavedMaps().filter((item) => item.type !== map.type || item.name !== map.name);
+async function deleteSavedMap(map) {
+  const maps = readLocalSavedMaps().filter((item) => item.type !== map.type || item.name !== map.name);
   writeSavedMaps(maps);
-  renderSavedMaps();
-  setStatus(`Deleted ${map.type}/${map.name}.`);
+  try {
+    const response = await fetch(`/api/maps/${encodeURIComponent(map.type)}/${encodeURIComponent(map.name)}`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) throw new Error('Server delete failed.');
+    const payload = await response.json();
+    serverMaps = Array.isArray(payload.maps) ? payload.maps : maps;
+    renderSavedMaps();
+    setStatus(`Deleted ${map.type}/${map.name} from server.`);
+  } catch (error) {
+    serverMaps = maps;
+    renderSavedMaps();
+    setStatus(`${error.message} Deleted locally only.`);
+  }
 }
 
 function renderSavedMaps() {
-  const maps = readSavedMaps();
+  const maps = serverMaps.length > 0 ? serverMaps : readLocalSavedMaps();
   savedMaps.innerHTML = '';
   maps.forEach((map) => {
     const row = document.createElement('div');
@@ -615,5 +658,5 @@ mapTypeInput.addEventListener('change', renderBoard);
 mapNameInput.addEventListener('input', updateOutput);
 
 renderBoard();
-renderSavedMaps();
+fetchSavedMaps();
 renderUploadedAssets();
