@@ -96,7 +96,15 @@ export const BossTypes = Object.freeze([
       flyDown: '../res/Boss/eagle_new/airborne_down_1.png',
       flyUp: '../res/Boss/eagle_new/airborne_up_1.png',
       flyLeft: '../res/Boss/eagle_new/fly_1.png',
-      flyRight: '../res/Boss/eagle_new/fly_1.png'
+      flyRight: '../res/Boss/eagle_new/fly_1.png',
+      fly1: '../res/Boss/eagle_new/fly_1.png',
+      fly2: '../res/Boss/eagle_new/fly_2.png',
+      fly3: '../res/Boss/eagle_new/fly_3.png',
+      fly4: '../res/Boss/eagle_new/fly_4.png',
+      fly5: '../res/Boss/eagle_new/fly_5.png',
+      fly6: '../res/Boss/eagle_new/fly_6.png',
+      fly7: '../res/Boss/eagle_new/fly_7.png',
+      fly8: '../res/Boss/eagle_new/fly_8.png'
     }
   }
 ]);

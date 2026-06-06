@@ -56,6 +56,7 @@ export class GameView {
     this.crateLayer = this.scene.add.group();
     this.effectLayer = this.scene.add.group();
     createBombSheetTextures(this.scene);
+    this.createBossAnimations();
     this.drawMap();
     this.drawPlayer();
     this.drawEnemies();
@@ -212,12 +213,19 @@ export class GameView {
   setBossDirection(direction, boss = this.model.boss) {
     if (!boss?.sprite) return;
     boss.sprite.setFlipX(boss.type?.id === 'eagle' && boss.flying && direction === 'left');
+    if (boss.type?.id === 'eagle' && boss.flying) {
+      this.playEagleFlyAnimation(boss);
+      return;
+    }
+
+    boss.sprite.stop();
     boss.sprite.setTexture(this.bossTexture(direction, boss));
   }
 
   playBossFire(boss = this.model.boss, duration = 360) {
     if (!boss?.sprite) return;
 
+    boss.sprite.stop();
     boss.sprite.setTexture(this.bossTexture('fire', boss));
     this.scene.time.delayedCall(duration, () => {
       if (boss.sprite?.active) this.setBossDirection(boss.direction, boss);
@@ -227,6 +235,7 @@ export class GameView {
   showBossDead(boss = this.model.boss) {
     if (!boss?.sprite) return;
 
+    boss.sprite.stop();
     boss.sprite.setTexture(this.bossTexture('dead', boss));
     boss.sprite.setVisible(true);
     this.scene.tweens.add({
@@ -323,8 +332,35 @@ export class GameView {
     boss.sprite.clearTint();
     boss.sprite.setAlpha(1);
     if (flying) boss.sprite.setTint(0xbae6fd);
-    this.setBossDirection(boss.direction, boss);
+    if (flying) {
+      this.playEagleFlyAnimation(boss);
+    } else {
+      boss.sprite.stop();
+      this.setBossDirection(boss.direction, boss);
+    }
     this.updateBossDepth(boss);
+  }
+
+  createBossAnimations() {
+    const eagleType = BossTypes.find((type) => type.id === 'eagle');
+    if (!eagleType || this.scene.anims.exists('eagle-fly')) return;
+
+    this.scene.anims.create({
+      key: 'eagle-fly',
+      frames: Array.from({ length: 8 }, (_item, index) => ({
+        key: this.bossTextureKey(eagleType, `fly${index + 1}`)
+      })),
+      frameRate: 10,
+      repeat: -1
+    });
+  }
+
+  playEagleFlyAnimation(boss) {
+    if (!boss?.sprite) return;
+
+    if (boss.sprite.anims.currentAnim?.key !== 'eagle-fly' || !boss.sprite.anims.isPlaying) {
+      boss.sprite.play('eagle-fly');
+    }
   }
 
   createBombSprite(bomb) {
