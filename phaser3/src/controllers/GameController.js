@@ -440,6 +440,7 @@ export class GameController {
       const nextY = enemy.gridY + enemy.dir.y;
       if (!this.model.isWalkable(nextX, nextY)) return;
 
+      enemy.setDirection(this.directionFromDelta(enemy.dir));
       enemy.setGridPosition(nextX, nextY);
       this.view.moveEnemy(enemy);
     });
@@ -925,6 +926,7 @@ export class GameController {
         id: enemy.id,
         x: enemy.gridX,
         y: enemy.gridY,
+        direction: enemy.direction,
         alive: enemy.isAlive()
       })),
       bosses: this.model.bosses.map((boss) => ({
@@ -970,6 +972,7 @@ export class GameController {
       }
 
       enemy.setGridPosition(enemyState.x, enemyState.y);
+      enemy.setDirection(enemyState.direction || enemy.direction);
       this.view.syncEnemy(enemy);
     });
 

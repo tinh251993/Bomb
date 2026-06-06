@@ -586,7 +586,7 @@ function renderObjects() {
     }
     if (object.kind === 'enemy') {
       const image = document.createElement('img');
-      image.src = mapTypeInput.value === 'forest' ? '../res/quaivat3new_down.png' : '../res/quaivat 3_down.png';
+      image.src = '../res/CreepTiny/quaivat 2_down.png';
       image.alt = 'Enemy';
       marker.appendChild(image);
     }

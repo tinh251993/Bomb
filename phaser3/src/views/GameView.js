@@ -29,8 +29,10 @@ export class GameView {
         load.image(`${character.id}-${direction}`, path);
       });
     });
-    load.image('enemy', '../res/quaivat 3_down.png');
-    load.image('forest-enemy', '../res/quaivat3new_down.png');
+    load.image('enemy-down', '../res/CreepTiny/quaivat 2_down.png');
+    load.image('enemy-up', '../res/CreepTiny/quaivat 2_up.png');
+    load.image('enemy-left', '../res/CreepTiny/quaivat 2_left.png');
+    load.image('enemy-right', '../res/CreepTiny/quaivat 2_right.png');
     BossTypes.forEach((bossType) => {
       Object.entries(bossType.sprites).forEach(([state, path]) => {
         load.image(this.bossTextureKey(bossType, state), path);
@@ -111,10 +113,9 @@ export class GameView {
   }
 
   drawEnemies() {
-    const texture = this.model.mapType === 'forest' ? 'forest-enemy' : 'enemy';
     this.model.enemies.forEach((enemy) => {
       const pos = GridMath.toWorld(enemy.gridX, enemy.gridY);
-      const sprite = this.scene.add.sprite(pos.x, pos.y, texture).setDisplaySize(42, 42);
+      const sprite = this.scene.add.sprite(pos.x, pos.y, this.enemyTexture(enemy.direction)).setDisplaySize(42, 42);
       this.updateSpriteDepth(sprite);
       enemy.attachSprite(sprite);
     });
@@ -272,6 +273,7 @@ export class GameView {
 
   moveEnemy(enemy) {
     const pos = GridMath.toWorld(enemy.gridX, enemy.gridY);
+    enemy.sprite.setTexture(this.enemyTexture(enemy.direction));
     this.scene.tweens.add({
       targets: enemy.sprite,
       x: pos.x,
@@ -286,6 +288,7 @@ export class GameView {
   syncEnemy(enemy) {
     const pos = GridMath.toWorld(enemy.gridX, enemy.gridY);
     enemy.sprite.setPosition(pos.x, pos.y);
+    enemy.sprite.setTexture(this.enemyTexture(enemy.direction));
     enemy.sprite.setVisible(enemy.isAlive());
     this.updateSpriteDepth(enemy.sprite);
   }
@@ -523,6 +526,13 @@ export class GameView {
 
   playerTexture(direction) {
     return `${this.model.player.character.id}-${direction}`;
+  }
+
+  enemyTexture(direction) {
+    if (direction === 'up') return 'enemy-up';
+    if (direction === 'left') return 'enemy-left';
+    if (direction === 'right') return 'enemy-right';
+    return 'enemy-down';
   }
 
   bossTexture(direction, boss = this.model.boss) {
