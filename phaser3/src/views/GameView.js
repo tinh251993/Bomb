@@ -198,7 +198,7 @@ export class GameView {
     const player = this.model.player;
     const status = player.status === 'alive' ? '' : `   ${player.status.toUpperCase()}`;
     const lives = this.model.infiniteLives ? '   Lives INF' : '';
-    this.scoreText.setText(`Level ${this.model.level}   Score ${this.model.score}   Bombs ${player.maxBombs}   Range ${player.bombRange}   Type ${player.currentBombType.name}${lives}${status}`);
+    this.scoreText.setText(`Level ${this.model.level}   Score ${this.model.score}   Deaths ${this.model.levelDeathCount}   Bombs ${player.maxBombs}   Range ${player.bombRange}   Type ${player.currentBombType.name}${lives}${status}`);
   }
 
   updatePing(latencyMs) {
@@ -428,6 +428,16 @@ export class GameView {
 
     this.cheatText.setText(message).setVisible(true);
     this.scene.time.delayedCall(1200, () => {
+      if (this.cheatText?.text === message) this.cheatText.setVisible(false);
+    });
+  }
+
+  showDeathCount(deathCount) {
+    if (!this.cheatText) return;
+
+    const message = `LEVEL ${this.model.level} DEATHS: ${deathCount}`;
+    this.cheatText.setText(message).setVisible(true);
+    this.scene.time.delayedCall(1800, () => {
       if (this.cheatText?.text === message) this.cheatText.setVisible(false);
     });
   }

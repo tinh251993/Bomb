@@ -80,6 +80,7 @@ export class GameModel {
     this.playerPassThroughBombs = new Set();
     this.items = new Map();
     this.score = options.score || 0;
+    this.levelDeathCount = 0;
     this.gameOver = false;
     this.won = false;
     this.spawnEnemies();
@@ -216,6 +217,11 @@ export class GameModel {
     this.player.setGridPosition(SHARED_PLAYER_SPAWN.x, SHARED_PLAYER_SPAWN.y);
     this.player.respawn(invincibleUntil);
     return SHARED_PLAYER_SPAWN;
+  }
+
+  recordLevelDeath() {
+    this.levelDeathCount++;
+    return this.levelDeathCount;
   }
 
   canPlaceBomb() {

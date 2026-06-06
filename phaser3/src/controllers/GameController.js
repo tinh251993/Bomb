@@ -760,6 +760,8 @@ export class GameController {
     const player = this.model.player;
     if (player.isDead()) return;
 
+    const deathCount = this.model.recordLevelDeath();
+    this.view.showDeathCount(deathCount);
     if (this.model.infiniteLives) {
       this.respawnLocalPlayer();
       return;
@@ -767,6 +769,7 @@ export class GameController {
 
     player.die();
     this.view.updateLocalPlayerStatus();
+    this.view.updateHud();
     this.broadcastPlayerState(this.scene.time.now + 1000);
 
     if (this.areAllPlayersDead()) {
