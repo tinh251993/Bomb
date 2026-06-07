@@ -11,12 +11,16 @@
   <div id="game"></div>
   <div id="mobile-controls" class="mobile-controls" aria-label="Mobile controls">
     <div class="mobile-dpad" aria-label="Move controls">
-      <button class="mobile-control mobile-up" type="button" data-mobile-action="up" aria-label="Move up">▲</button>
-      <button class="mobile-control mobile-left" type="button" data-mobile-action="left" aria-label="Move left">◀</button>
-      <button class="mobile-control mobile-right" type="button" data-mobile-action="right" aria-label="Move right">▶</button>
-      <button class="mobile-control mobile-down" type="button" data-mobile-action="down" aria-label="Move down">▼</button>
+      <button class="mobile-control mobile-up" type="button" data-mobile-action="up" aria-label="Move up">UP</button>
+      <button class="mobile-control mobile-left" type="button" data-mobile-action="left" aria-label="Move left">LEFT</button>
+      <button class="mobile-control mobile-right" type="button" data-mobile-action="right" aria-label="Move right">RIGHT</button>
+      <button class="mobile-control mobile-down" type="button" data-mobile-action="down" aria-label="Move down">DOWN</button>
     </div>
-    <button class="mobile-control mobile-bomb" type="button" data-mobile-action="bomb" aria-label="Place bomb">BOMB</button>
+    <div class="mobile-actions" aria-label="Action controls">
+      <button class="mobile-control mobile-small-action" type="button" data-mobile-action="invincible" aria-label="Invincible">INV</button>
+      <button class="mobile-control mobile-bomb" type="button" data-mobile-action="bomb" aria-label="Place bomb">BOMB</button>
+      <button class="mobile-control mobile-small-action" type="button" data-mobile-action="restart" aria-label="Reset level">RESET</button>
+    </div>
   </div>
   <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.min.js"></script>

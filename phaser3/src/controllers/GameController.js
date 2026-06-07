@@ -153,6 +153,14 @@ export class GameController {
           this.placeBomb();
           return;
         }
+        if (action === 'restart') {
+          this.restartCurrentLevel();
+          return;
+        }
+        if (action === 'invincible') {
+          this.enableInfiniteLives();
+          return;
+        }
         this.mobileInput.direction = directionMap[action] || null;
       };
       const onUp = (event) => {
