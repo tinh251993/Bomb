@@ -21,6 +21,9 @@ export class SelectionScene extends Phaser.Scene {
     this.levelGroupButtons = [];
     this.mapPreviewGraphics = null;
     this.mapPreviewTitle = null;
+    this.selectedCharacterImage = null;
+    this.selectedBombImage = null;
+    this.summaryText = null;
     this.activeLevelGroup = 'pirate';
     this.isMultiplayer = false;
     this.roomText = null;
@@ -44,10 +47,11 @@ export class SelectionScene extends Phaser.Scene {
   create(data = {}) {
     this.isMultiplayer = Boolean(data.multiplayer);
     this.hasStartedGame = false;
-    this.cameras.main.setBackgroundColor('#111827');
+    this.cameras.main.setBackgroundColor('#061524');
     this.add.image(WIDTH / 2, HEIGHT / 2, 'select-bg')
       .setDisplaySize(WIDTH, HEIGHT)
-      .setAlpha(0.34);
+      .setAlpha(0.48);
+    this.add.rectangle(WIDTH / 2, HEIGHT / 2, WIDTH, HEIGHT, 0x020617, 0.28);
 
     createBombSheetTextures(this);
     this.addTitle();
@@ -55,6 +59,7 @@ export class SelectionScene extends Phaser.Scene {
     this.addBombPicker();
     this.addLevelPicker();
     this.addMapPreview();
+    this.addSelectionSummary();
     this.addStartButton();
     this.addRoomStatus();
     this.refreshSelection();
@@ -73,37 +78,47 @@ export class SelectionScene extends Phaser.Scene {
   }
 
   addTitle() {
-    this.add.text(WIDTH / 2, 38, 'CHOOSE YOUR FIGHTER', {
+    this.add.rectangle(WIDTH / 2, 40, WIDTH - 72, 58, 0x07111f, 0.74)
+      .setStrokeStyle(2, 0x38bdf8, 0.5);
+    this.add.text(WIDTH / 2, 38, 'CHOOSE FIGHTER', {
       fontFamily: 'Arial',
-      fontSize: '28px',
+      fontSize: '32px',
       color: '#f8fafc',
       fontStyle: 'bold'
     }).setOrigin(0.5);
   }
 
   addCharacterPicker() {
-    this.add.text(48, 72, 'Character', {
+    this.add.rectangle(338, 194, 604, 218, 0x0b2a46, 0.88)
+      .setStrokeStyle(3, 0x164e63, 0.9);
+    this.add.text(54, 96, 'Character', {
       fontFamily: 'Arial',
-      fontSize: '18px',
-      color: '#cbd5e1',
+      fontSize: '20px',
+      color: '#fde68a',
       fontStyle: 'bold'
     });
 
     Characters.forEach((character, index) => {
-      const x = 132 + index * 220;
-      const card = this.add.container(x, 170);
-      const panel = this.add.rectangle(0, 0, 170, 150, 0x0f172a, 0.88)
+      const x = 138 + index * 200;
+      const card = this.add.container(x, 202);
+      const panel = this.add.rectangle(0, 0, 168, 166, 0x0f172a, 0.9)
         .setStrokeStyle(3, 0x334155);
-      const sprite = this.add.image(0, -18, `${character.id}-card`).setDisplaySize(96, 96);
-      const name = this.add.text(0, 54, character.name, {
+      const sprite = this.add.image(0, -36, `${character.id}-card`).setDisplaySize(104, 104);
+      const name = this.add.text(0, 42, character.name, {
         fontFamily: 'Arial',
         fontSize: '18px',
         color: '#f8fafc',
         fontStyle: 'bold'
       }).setOrigin(0.5);
+      const stats = this.add.text(0, 72, `B${character.stats.maxBombs}  S${character.stats.speed}  R${character.stats.bombRange}`, {
+        fontFamily: 'Arial',
+        fontSize: '13px',
+        color: '#bfdbfe',
+        fontStyle: 'bold'
+      }).setOrigin(0.5);
 
-      card.add([panel, sprite, name]);
-      card.setSize(170, 150);
+      card.add([panel, sprite, name, stats]);
+      card.setSize(168, 166);
       card.setInteractive({ useHandCursor: true });
       card.on('pointerdown', () => {
         this.selectedCharacter = character;
@@ -114,20 +129,22 @@ export class SelectionScene extends Phaser.Scene {
   }
 
   addBombPicker() {
-    this.add.text(48, 258, 'Bomb type', {
+    this.add.rectangle(338, 416, 604, 178, 0x0b2a46, 0.88)
+      .setStrokeStyle(3, 0x164e63, 0.9);
+    this.add.text(54, 342, 'Bomb type', {
       fontFamily: 'Arial',
-      fontSize: '18px',
-      color: '#cbd5e1',
+      fontSize: '20px',
+      color: '#fde68a',
       fontStyle: 'bold'
     });
 
     BombTypes.forEach((type, index) => {
-      const x = 76 + index * 142;
-      const card = this.add.container(x, 340);
-      const panel = this.add.rectangle(0, 0, 112, 108, 0x0f172a, 0.88)
+      const x = 102 + index * 116;
+      const card = this.add.container(x, 434);
+      const panel = this.add.rectangle(0, 0, 94, 108, 0x0f172a, 0.9)
         .setStrokeStyle(3, 0x334155);
       const bomb = this.add.image(0, -22, `bomb-${type.id}`)
-        .setDisplaySize(50, 50);
+        .setDisplaySize(58, 58);
       const name = this.add.text(0, 34, type.name, {
         fontFamily: 'Arial',
         fontSize: '14px',
@@ -137,7 +154,7 @@ export class SelectionScene extends Phaser.Scene {
       }).setOrigin(0.5);
 
       card.add([panel, bomb, name]);
-      card.setSize(112, 108);
+      card.setSize(94, 108);
       card.setInteractive({ useHandCursor: true });
       card.on('pointerdown', () => {
         this.selectedBombType = type;
@@ -148,20 +165,22 @@ export class SelectionScene extends Phaser.Scene {
   }
 
   addLevelPicker() {
-    this.add.text(48, 430, 'Map', {
+    this.add.rectangle(338, 586, 604, 110, 0x0b2a46, 0.88)
+      .setStrokeStyle(3, 0x164e63, 0.9);
+    this.add.text(54, 544, 'Map', {
       fontFamily: 'Arial',
-      fontSize: '18px',
-      color: '#cbd5e1',
+      fontSize: '20px',
+      color: '#fde68a',
       fontStyle: 'bold'
     });
 
     this.mapOptions = this.createMapOptions();
-    this.mapSelect = this.add.dom(344, 520, 'select', [
-      'width: 520px',
-      'height: 44px',
+    this.mapSelect = this.add.dom(338, 600, 'select', [
+      'width: 540px',
+      'height: 48px',
       'font: 18px Arial',
-      'border: 3px solid #334155',
-      'border-radius: 6px',
+      'border: 3px solid #38bdf8',
+      'border-radius: 8px',
       'background: #020617',
       'color: #f8fafc',
       'outline: none',
@@ -179,11 +198,17 @@ export class SelectionScene extends Phaser.Scene {
   }
 
   addMapPreview() {
-    const panelX = 948;
-    const panelY = 286;
-    this.add.rectangle(panelX, panelY, 520, 350, 0x0f172a, 0.9)
-      .setStrokeStyle(3, 0x334155);
-    this.mapPreviewTitle = this.add.text(panelX, 126, '', {
+    const panelX = 950;
+    const panelY = 352;
+    this.add.rectangle(panelX, panelY, 514, 516, 0x0b2a46, 0.9)
+      .setStrokeStyle(3, 0x164e63, 0.9);
+    this.add.text(panelX, 104, 'Map preview', {
+      fontFamily: 'Arial',
+      fontSize: '20px',
+      color: '#fde68a',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+    this.mapPreviewTitle = this.add.text(panelX, 138, '', {
       fontFamily: 'Arial',
       fontSize: '18px',
       color: '#f8fafc',
@@ -323,9 +348,9 @@ export class SelectionScene extends Phaser.Scene {
     if (!this.mapPreviewGraphics) return;
 
     const map = new TileMap(this.selectedLevel.level, 'preview', this.selectedCustomMap?.layout || null);
-    const cell = 16;
-    const startX = 740;
-    const startY = 158;
+    const cell = 14;
+    const startX = 768;
+    const startY = 176;
     const colors = {
       [TileType.EMPTY]: 0x8fbf45,
       [TileType.WALL]: 0xd9e3e6,
@@ -357,7 +382,7 @@ export class SelectionScene extends Phaser.Scene {
       }
     });
 
-    this.mapPreviewTitle?.setText(`Preview: ${this.selectedMapName()}`);
+    this.mapPreviewTitle?.setText(this.selectedMapName());
   }
 
   mapValue() {
@@ -388,10 +413,27 @@ export class SelectionScene extends Phaser.Scene {
       : this.selectedLevel.name;
   }
 
+  addSelectionSummary() {
+    this.add.rectangle(950, 456, 438, 136, 0x07111f, 0.82)
+      .setStrokeStyle(2, 0x38bdf8, 0.5);
+    this.selectedCharacterImage = this.add.image(804, 456, `${this.selectedCharacter.id}-card`)
+      .setDisplaySize(108, 108);
+    this.selectedBombImage = this.add.image(1074, 444, `bomb-${this.selectedBombType.id}`)
+      .setDisplaySize(62, 62);
+    this.summaryText = this.add.text(870, 406, '', {
+      fontFamily: 'Arial',
+      fontSize: '17px',
+      color: '#f8fafc',
+      fontStyle: 'bold',
+      lineSpacing: 8
+    });
+  }
+
   addStartButton() {
-    const button = this.add.container(WIDTH / 2, HEIGHT - 44);
-    const bg = this.add.rectangle(0, 0, 210, 54, 0x16a34a, 1)
-      .setStrokeStyle(3, 0xbbf7d0);
+    const button = this.add.container(950, HEIGHT - 58);
+    const shadow = this.add.rectangle(0, 7, 246, 62, 0x020617, 0.45);
+    const bg = this.add.rectangle(0, 0, 246, 62, 0x16a34a, 1)
+      .setStrokeStyle(4, 0xbbf7d0);
     this.actionLabel = this.add.text(0, 0, this.isMultiplayer ? 'READY' : 'START GAME', {
       fontFamily: 'Arial',
       fontSize: '20px',
@@ -399,8 +441,8 @@ export class SelectionScene extends Phaser.Scene {
       fontStyle: 'bold'
     }).setOrigin(0.5);
 
-    button.add([bg, this.actionLabel]);
-    button.setSize(210, 54);
+    button.add([shadow, bg, this.actionLabel]);
+    button.setSize(246, 62);
     button.setInteractive({ useHandCursor: true });
     button.on('pointerover', () => bg.setFillStyle(0x22c55e));
     button.on('pointerout', () => bg.setFillStyle(0x16a34a));
@@ -420,7 +462,7 @@ export class SelectionScene extends Phaser.Scene {
   }
 
   addRoomStatus() {
-    this.roomText = this.add.text(WIDTH / 2, HEIGHT - 96, '', {
+    this.roomText = this.add.text(950, HEIGHT - 116, '', {
       fontFamily: 'Arial',
       fontSize: '15px',
       color: '#cbd5e1',
@@ -464,6 +506,16 @@ export class SelectionScene extends Phaser.Scene {
       this.mapSelect.node.value = this.mapValue();
       this.mapSelect.node.disabled = this.isMultiplayer && !multiplayer.isHost();
     }
+
+    this.selectedCharacterImage?.setTexture(`${this.selectedCharacter.id}-card`);
+    this.selectedBombImage?.setTexture(`bomb-${this.selectedBombType.id}`);
+    this.summaryText?.setText([
+      this.selectedCharacter.name,
+      `Bombs ${this.selectedCharacter.stats.maxBombs}`,
+      `Speed ${this.selectedCharacter.stats.speed}`,
+      `Range ${this.selectedCharacter.stats.bombRange}`,
+      `Type ${this.selectedBombType.name}`
+    ].join('\n'));
 
     this.updateMapPreview();
 
