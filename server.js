@@ -16,8 +16,16 @@ const mapsFile = path.join(dataDir, 'custom-maps.json');
 
 app.use(express.json({ limit: '1mb' }));
 app.use('/res', express.static(path.join(__dirname, 'res')));
+app.use('/age-war', express.static(path.join(__dirname, 'age-war')));
+app.get('/', (_req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+app.get(['/phaser3/', '/phaser3/index.html'], (req, res) => {
+  if (req.query.play === '1') {
+    res.sendFile(path.join(__dirname, 'phaser3', 'index.html'));
+    return;
+  }
+  res.redirect('/');
+});
 app.use('/phaser3', express.static(path.join(__dirname, 'phaser3')));
-app.get('/', (_req, res) => res.redirect('/phaser3/'));
 
 app.get('/api/maps', (_req, res) => {
   res.json({ ok: true, maps: readCustomMaps() });
@@ -184,6 +192,19 @@ io.on('connection', (socket) => {
     const payload = { room: serializeRoom(room) };
     emitRoom(room);
     io.to(room.code).emit('room:game-start', payload);
+  });
+
+  socket.on('p2p:signal', ({ targetPlayerId, type, payload }, reply) => {
+    const room = getSocketRoom(socket);
+    if (!room) return reply?.({ ok: false, message: 'Not in a room.' });
+    if (!room.players.has(targetPlayerId)) return reply?.({ ok: false, message: 'Target player not found.' });
+
+    io.to(targetPlayerId).emit('p2p:signal', {
+      fromPlayerId: socket.id,
+      type,
+      payload
+    });
+    reply?.({ ok: true });
   });
 
   socket.on('game:player-state', (state) => {

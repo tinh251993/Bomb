@@ -1,4 +1,4 @@
-import { BombTypes, BossBombType, DIRS, Direction, TILE } from '../core/constants.js';
+import { BombTypes, BossBombType, DIRS, Direction, TILE, TileType } from '../core/constants.js';
 import { GridMath } from '../core/GridMath.js';
 import { multiplayer } from '../services/MultiplayerService.js';
 
@@ -15,11 +15,15 @@ export class GameController {
     this.multiplayer = { enabled: false, room: null, playerId: null };
     this.lastStateSentAt = 0;
     this.lastWorldStateSentAt = 0;
+    this.playerStateSeq = 0;
+    this.worldStateSeq = 0;
+    this.lastAppliedWorldStateSeq = 0;
     this.unsubscribeRemoteState = null;
     this.unsubscribeRemoteBomb = null;
     this.unsubscribeRemoteWorldState = null;
     this.unsubscribeReviveRequest = null;
     this.unsubscribeKillEnemiesRequest = null;
+    this.unsubscribeRestartLevel = null;
     this.unsubscribeLatency = null;
     this.remoteStatuses = new Map();
     this.lastReviveRequestAt = 0;
@@ -43,12 +47,9 @@ export class GameController {
       if (playerId === this.multiplayer.playerId) return;
       this.remoteStatuses.set(playerId, state?.status || 'alive');
       this.view.updateRemotePlayer(playerId, state);
-      if (playerId === this.multiplayer.room?.hostId && !this.isAuthoritativeHost()) {
-        this.applyWorldState(state?.world);
-      }
     });
     this.unsubscribeRemoteBomb = multiplayer.onRemoteBombPlace(({ playerId, bomb }) => {
-      if (playerId === this.multiplayer.playerId) return;
+      if (playerId === this.multiplayer.playerId && this.isAuthoritativeHost()) return;
       this.placeRemoteBomb(bomb);
     });
     this.unsubscribeRemoteWorldState = multiplayer.onRemoteWorldState((state) => {
@@ -61,6 +62,10 @@ export class GameController {
     this.unsubscribeKillEnemiesRequest = multiplayer.onKillEnemiesRequest(() => {
       if (this.isAuthoritativeHost()) this.killAllEnemies();
     });
+    this.unsubscribeRestartLevel = multiplayer.onRestartLevel((payload) => {
+      if (this.isAuthoritativeHost()) return;
+      this.restartFromPayload(payload);
+    });
     this.unsubscribeLatency = multiplayer.onLatencyUpdate((latencyMs) => {
       this.view.updatePing(latencyMs);
     });
@@ -70,6 +75,7 @@ export class GameController {
       this.unsubscribeRemoteWorldState?.();
       this.unsubscribeReviveRequest?.();
       this.unsubscribeKillEnemiesRequest?.();
+      this.unsubscribeRestartLevel?.();
       this.unsubscribeLatency?.();
       multiplayer.leaveGame().catch(() => {});
     });
@@ -230,6 +236,11 @@ export class GameController {
   }
 
   enableInfiniteLives() {
+    if (!this.isAuthoritativeHost()) {
+      this.view.showCheatMessage('HOST ONLY');
+      return;
+    }
+
     this.model.enableInfiniteLives();
     this.view.showCheatMessage('INFINITE LIVES');
     this.view.updateHud();
@@ -278,21 +289,39 @@ export class GameController {
   }
 
   restartCurrentLevel() {
-    const player = this.model.player;
-    this.scene.scene.restart({
-      ...this.scene.launchData,
+    if (!this.isAuthoritativeHost()) {
+      this.view.showCheatMessage('HOST ONLY');
+      return;
+    }
+
+    const payload = this.createRestartPayload();
+    multiplayer.sendRestartLevel(payload);
+    this.restartFromPayload(payload);
+  }
+
+  createRestartPayload() {
+    return {
       level: this.model.level,
       score: this.model.score,
       levelDeathCount: this.model.levelDeathCount,
+      infiniteLives: this.model.infiniteLives
+    };
+  }
+
+  restartFromPayload(payload = {}) {
+    const player = this.model.player;
+    this.scene.scene.restart({
+      ...this.scene.launchData,
+      ...payload,
       playerStats: {
+        ...(this.scene.launchData?.playerStats || {}),
         maxBombs: player.maxBombs,
         bombRange: player.bombRange,
         speed: player.speed,
         currentBombType: player.currentBombType,
-        infiniteLives: this.model.infiniteLives,
-        levelDeathCount: this.model.levelDeathCount
-      },
-      infiniteLives: this.model.infiniteLives
+        infiniteLives: Boolean(payload.infiniteLives),
+        levelDeathCount: payload.levelDeathCount || 0
+      }
     });
   }
 
@@ -310,6 +339,7 @@ export class GameController {
     this.checkEnemyCollision();
     this.checkBossCollision();
     this.broadcastPlayerState(time);
+    this.view.updateNetworkSprites(delta / 1000);
   }
 
   isAuthoritativeHost() {
@@ -731,6 +761,17 @@ export class GameController {
   placeBomb() {
     const tile = GridMath.toGrid(this.model.player.sprite.x, this.model.player.sprite.y);
     const damageDisabled = this.model.player.isInvincible(this.scene.time.now);
+    if (this.multiplayer.enabled && !this.isAuthoritativeHost()) {
+      multiplayer.sendBombPlace({
+        x: tile.x,
+        y: tile.y,
+        range: this.model.player.bombRange,
+        bombTypeId: this.model.player.currentBombType.id,
+        damageDisabled
+      });
+      return;
+    }
+
     const bomb = this.model.placeBomb(tile.x, tile.y, { damageDisabled });
     if (!bomb) return;
 
@@ -908,6 +949,7 @@ export class GameController {
     const player = this.model.player;
     this.lastStateSentAt = time;
     const state = {
+      seq: ++this.playerStateSeq,
       x: player.sprite.x,
       y: player.sprite.y,
       gridX: player.gridX,
@@ -917,12 +959,11 @@ export class GameController {
       status: player.status,
       downedRemainingMs: player.isDowned() ? Math.max(0, player.downedUntil - this.scene.time.now) : 0
     };
-    if (this.isAuthoritativeHost()) state.world = this.createWorldState();
     multiplayer.sendPlayerState(state);
   }
 
   broadcastWorldState(time) {
-    if (!this.multiplayer.enabled || time - this.lastWorldStateSentAt < 120) return;
+    if (!this.multiplayer.enabled || time - this.lastWorldStateSentAt < 100) return;
 
     this.lastWorldStateSentAt = time;
     multiplayer.sendWorldState(this.createWorldState());
@@ -930,39 +971,42 @@ export class GameController {
 
   createWorldState() {
     return {
-      enemies: this.model.enemies.map((enemy) => ({
+      seq: ++this.worldStateSeq,
+      score: this.model.score,
+      crates: this.getCrateState(),
+      enemies: this.model.enemies.filter((enemy) => enemy.isAlive()).map((enemy) => ({
         id: enemy.id,
         x: enemy.gridX,
         y: enemy.gridY,
+        worldX: enemy.sprite?.x,
+        worldY: enemy.sprite?.y,
         direction: enemy.direction,
-        alive: enemy.isAlive()
+        alive: true
       })),
-      bosses: this.model.bosses.map((boss) => ({
+      bosses: this.model.bosses.filter((boss) => boss.isAlive()).map((boss) => ({
         id: boss.id,
         bossType: boss.type?.id,
         x: boss.gridX,
         y: boss.gridY,
+        worldX: boss.sprite?.x,
+        worldY: boss.sprite?.y,
         direction: boss.direction,
         health: boss.health,
         bombRange: boss.bombRange,
         flying: boss.flying,
-        alive: boss.isAlive()
-      })),
-      boss: this.model.boss ? {
-        x: this.model.boss.gridX,
-        y: this.model.boss.gridY,
-        bossType: this.model.boss.type?.id,
-        direction: this.model.boss.direction,
-        health: this.model.boss.health,
-        bombRange: this.model.boss.bombRange,
-        flying: this.model.boss.flying,
-        alive: this.model.boss.isAlive()
-      } : null
+        alive: true
+      }))
     };
   }
 
   applyWorldState(state) {
     if (!state) return;
+    if (Number.isFinite(state.seq)) {
+      if (state.seq <= this.lastAppliedWorldStateSeq) return;
+      this.lastAppliedWorldStateSeq = state.seq;
+    }
+    if (Number.isFinite(state.score)) this.model.score = state.score;
+    if (Array.isArray(state.crates)) this.applyCrateState(state.crates);
 
     const liveEnemyIds = new Set((state.enemies || []).map((enemyState) => enemyState.id));
     this.model.enemies.forEach((enemy) => {
@@ -979,8 +1023,21 @@ export class GameController {
         return;
       }
 
+      const nextDirection = enemyState.direction || enemy.direction;
+      const nextEnemyWorldX = Number.isFinite(enemyState.worldX) ? enemyState.worldX : null;
+      const nextEnemyWorldY = Number.isFinite(enemyState.worldY) ? enemyState.worldY : null;
+      const changed = enemy.gridX !== enemyState.x
+        || enemy.gridY !== enemyState.y
+        || enemy.direction !== nextDirection
+        || Math.abs((enemy.networkX ?? -9999) - (nextEnemyWorldX ?? -9999)) > 2
+        || Math.abs((enemy.networkY ?? -9999) - (nextEnemyWorldY ?? -9999)) > 2
+        || !enemy.sprite.visible;
+      if (!changed) return;
+
       enemy.setGridPosition(enemyState.x, enemyState.y);
-      enemy.setDirection(enemyState.direction || enemy.direction);
+      enemy.setDirection(nextDirection);
+      enemy.networkX = nextEnemyWorldX;
+      enemy.networkY = nextEnemyWorldY;
       this.view.syncEnemy(enemy);
     });
 
@@ -991,17 +1048,73 @@ export class GameController {
       const boss = this.model.bosses.find((item) => item.id === bossState.id);
       if (!boss) return;
 
+      if (!bossState.alive) {
+        boss.destroy();
+        return;
+      }
+
+      const nextType = this.model.resolveBossType?.(bossState.bossType) || boss.type;
+      const nextDirection = bossState.direction || boss.direction;
+      const nextBombRange = Number.isFinite(bossState.bombRange) ? bossState.bombRange : boss.bombRange;
+      const nextFlying = Boolean(bossState.flying);
+      const nextBossWorldX = Number.isFinite(bossState.worldX) ? bossState.worldX : null;
+      const nextBossWorldY = Number.isFinite(bossState.worldY) ? bossState.worldY : null;
+      const changed = boss.gridX !== bossState.x
+        || boss.gridY !== bossState.y
+        || Math.abs((boss.networkX ?? -9999) - (nextBossWorldX ?? -9999)) > 2
+        || Math.abs((boss.networkY ?? -9999) - (nextBossWorldY ?? -9999)) > 2
+        || boss.type?.id !== nextType?.id
+        || boss.direction !== nextDirection
+        || boss.health !== bossState.health
+        || boss.bombRange !== nextBombRange
+        || boss.flying !== nextFlying
+        || !boss.sprite.visible;
+
       boss.setGridPosition(bossState.x, bossState.y);
-      boss.type = this.model.resolveBossType?.(bossState.bossType) || boss.type;
-      boss.setDirection(bossState.direction || boss.direction);
+      boss.type = nextType;
+      boss.setDirection(nextDirection);
       boss.health = bossState.health;
-      if (Number.isFinite(bossState.bombRange)) boss.bombRange = bossState.bombRange;
-      boss.flying = Boolean(bossState.flying);
-      if (!bossState.alive) boss.destroy();
+      boss.bombRange = nextBombRange;
+      boss.flying = nextFlying;
+      boss.networkX = nextBossWorldX;
+      boss.networkY = nextBossWorldY;
+      if (!changed) return;
+
       this.view.setBossDirection(boss.direction, boss);
       this.view.syncBoss(boss);
     });
     this.model.boss = this.model.bosses.find((boss) => boss.isAlive()) || null;
+    this.view.updateHud();
+  }
+
+  getCrateState() {
+    const crates = [];
+    for (let y = 0; y < this.model.map.grid.length; y++) {
+      for (let x = 0; x < this.model.map.grid[y].length; x++) {
+        if (this.model.map.get(x, y) === TileType.CRATE) crates.push(`${x},${y}`);
+      }
+    }
+    return crates;
+  }
+
+  applyCrateState(crateKeys) {
+    const hostCrates = new Set(crateKeys);
+    for (let y = 0; y < this.model.map.grid.length; y++) {
+      for (let x = 0; x < this.model.map.grid[y].length; x++) {
+        const key = `${x},${y}`;
+        const localHasCrate = this.model.map.get(x, y) === TileType.CRATE;
+        const hostHasCrate = hostCrates.has(key);
+
+        if (localHasCrate && !hostHasCrate) {
+          this.model.map.set(x, y, TileType.EMPTY);
+          this.view.removeCrate(x, y);
+        }
+        if (!localHasCrate && hostHasCrate && this.model.map.get(x, y) === TileType.EMPTY) {
+          this.model.map.set(x, y, TileType.CRATE);
+          this.view.restoreCrate(x, y);
+        }
+      }
+    }
   }
 
   downLocalPlayer() {

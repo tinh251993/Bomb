@@ -10,6 +10,7 @@ export class LoadingScene extends Phaser.Scene {
     this.statusText = null;
     this.unsubscribeRoom = null;
     this.unsubscribeStart = null;
+    this.unsubscribeP2PStatus = null;
     this.hasStartedGame = false;
   }
 
@@ -38,6 +39,7 @@ export class LoadingScene extends Phaser.Scene {
 
     this.unsubscribeRoom = multiplayer.onRoomUpdate((room) => this.renderRoom(room));
     this.unsubscribeStart = multiplayer.onGameStart((room) => this.startGame(room));
+    this.unsubscribeP2PStatus = multiplayer.onP2PStatus((status) => this.renderP2PStatus(status));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.shutdown());
     this.renderRoom(data.room || multiplayer.room);
     this.reportReady();
@@ -45,7 +47,9 @@ export class LoadingScene extends Phaser.Scene {
 
   async reportReady() {
     try {
+      this.statusText?.setText('Connecting P2P peers...');
       await multiplayer.reportLoadingReady();
+      this.statusText?.setText('P2P ready. Waiting for players...');
     } catch (error) {
       this.statusText?.setText(error.message);
     }
@@ -57,6 +61,16 @@ export class LoadingScene extends Phaser.Scene {
     const loaded = room.loadingPlayerIds?.length || 0;
     const total = room.players?.length || 0;
     this.roomText.setText(`Room ${room.code}   Map ${room.customMap?.name || room.selectedLevel || 1}\n${loaded}/${total} players connected`);
+  }
+
+  renderP2PStatus(status) {
+    if (!this.statusText || !status) return;
+
+    const connected = status.peers.filter((peer) => peer.open).length;
+    const total = status.peers.length;
+    this.statusText.setText(status.ready
+      ? `P2P ready ${connected}/${total}`
+      : `Connecting P2P ${connected}/${total}`);
   }
 
   startGame(room) {
@@ -81,5 +95,6 @@ export class LoadingScene extends Phaser.Scene {
   shutdown() {
     this.unsubscribeRoom?.();
     this.unsubscribeStart?.();
+    this.unsubscribeP2PStatus?.();
   }
 }

@@ -1,3 +1,5 @@
+import { p2p } from './P2PService.js';
+
 class MultiplayerService {
   constructor() {
     this.socket = null;
@@ -12,9 +14,13 @@ class MultiplayerService {
     this.remoteWorldStateListeners = new Set();
     this.reviveListeners = new Set();
     this.killEnemiesListeners = new Set();
+    this.restartListeners = new Set();
     this.latencyListeners = new Set();
     this.latencyMs = null;
     this.pingTimer = null;
+    this.p2pStatusListeners = new Set();
+    this.unsubscribeP2PMessage = null;
+    this.unsubscribeP2PStatus = null;
   }
 
   isAvailable() {
@@ -50,6 +56,9 @@ class MultiplayerService {
     });
     this.socket.on('game:kill-enemies-request', (payload) => {
       this.killEnemiesListeners.forEach((listener) => listener(payload));
+    });
+    this.socket.on('p2p:signal', (payload) => {
+      p2p.handleSignal(payload).catch(() => {});
     });
 
     return new Promise((resolve, reject) => {
@@ -101,6 +110,9 @@ class MultiplayerService {
   }
 
   async reportLoadingReady() {
+    if (this.room?.players?.length > 1) {
+      await this.ensureP2PReady();
+    }
     const response = await this.emitWithAck('room:loading-ready', {});
     if (!response.ok) throw new Error(response.message || 'Could not confirm loading.');
     this.setRoom(response.room);
@@ -108,6 +120,7 @@ class MultiplayerService {
   }
 
   async enterGame() {
+    if (this.room?.players?.length > 1) await this.ensureP2PReady();
     const response = await this.emitWithAck('game:enter', {});
     if (response?.room) this.setRoom(response.room);
     return response;
@@ -120,27 +133,48 @@ class MultiplayerService {
 
   sendPlayerState(state) {
     if (!this.socket?.connected || !this.room?.started) return;
-    this.socket.emit('game:player-state', state);
+    if (this.requiresP2P()) {
+      this.sendP2P('game:player-state', state);
+      return;
+    }
   }
 
   sendBombPlace(bomb) {
     if (!this.socket?.connected || !this.room?.started) return;
-    this.socket.emit('game:bomb-place', bomb);
+    if (this.requiresP2P()) {
+      this.sendP2P('game:bomb-place', bomb);
+      return;
+    }
   }
 
   sendWorldState(state) {
     if (!this.socket?.connected || !this.room?.started || !this.isHost()) return;
-    this.socket.emit('game:world-state', state);
+    if (this.requiresP2P()) {
+      this.sendP2P('game:world-state', state);
+      return;
+    }
   }
 
   requestRevive(targetPlayerId) {
     if (!this.socket?.connected || !this.room?.started || !targetPlayerId) return;
-    this.socket.emit('game:revive-player', { targetPlayerId });
+    if (this.requiresP2P()) {
+      this.sendP2P('game:revive-player', { targetPlayerId });
+      return;
+    }
   }
 
   requestKillEnemies() {
     if (!this.socket?.connected || !this.room?.started) return;
-    this.socket.emit('game:kill-enemies');
+    if (this.requiresP2P()) {
+      this.sendP2P('game:kill-enemies', {});
+    }
+  }
+
+  sendRestartLevel(payload) {
+    if (!this.socket?.connected || !this.room?.started || !this.isHost()) return;
+    if (this.requiresP2P()) {
+      this.sendP2P('game:restart-level', payload);
+    }
   }
 
   onRoomUpdate(listener) {
@@ -191,10 +225,20 @@ class MultiplayerService {
     return () => this.killEnemiesListeners.delete(listener);
   }
 
+  onRestartLevel(listener) {
+    this.restartListeners.add(listener);
+    return () => this.restartListeners.delete(listener);
+  }
+
   onLatencyUpdate(listener) {
     this.latencyListeners.add(listener);
     if (this.latencyMs !== null) window.setTimeout(() => listener(this.latencyMs), 0);
     return () => this.latencyListeners.delete(listener);
+  }
+
+  onP2PStatus(listener) {
+    this.p2pStatusListeners.add(listener);
+    return () => this.p2pStatusListeners.delete(listener);
   }
 
   getLocalPlayer() {
@@ -217,8 +261,94 @@ class MultiplayerService {
       this.loadingListeners.forEach((listener) => listener(room));
     }
     if (!wasStarted && room?.started) {
+      this.stopPingMonitor();
       this.startListeners.forEach((listener) => listener(room));
     }
+  }
+
+  async ensureP2PReady() {
+    if (!this.room || !this.playerId || this.room.players.length <= 1) return;
+    this.bindP2PEvents();
+    await p2p.connectRoom(this.room, this.playerId, (targetPlayerId, type, payload) => {
+      return this.emitWithAck('p2p:signal', { targetPlayerId, type, payload });
+    });
+  }
+
+  bindP2PEvents() {
+    if (this.unsubscribeP2PMessage) return;
+
+    this.unsubscribeP2PMessage = p2p.onMessage(({ fromPlayerId, event, payload }) => {
+      if (event === 'game:player-state') {
+        this.remoteStateListeners.forEach((listener) => listener({ playerId: fromPlayerId, state: payload }));
+        if (this.isHost()) p2p.send('game:player-state-relay', { playerId: fromPlayerId, state: payload });
+        return;
+      }
+      if (event === 'game:player-state-relay') {
+        if (payload?.playerId === this.playerId) return;
+        this.remoteStateListeners.forEach((listener) => listener(payload));
+        return;
+      }
+      if (event === 'game:bomb-place') {
+        this.remoteBombListeners.forEach((listener) => listener({ playerId: fromPlayerId, bomb: payload }));
+        if (this.isHost()) p2p.send('game:bomb-place-relay', { playerId: fromPlayerId, bomb: payload });
+        return;
+      }
+      if (event === 'game:bomb-place-relay') {
+        this.remoteBombListeners.forEach((listener) => listener(payload));
+        return;
+      }
+      if (event === 'game:world-state') {
+        this.remoteWorldStateListeners.forEach((listener) => listener(payload));
+        return;
+      }
+      if (event === 'game:revive-player') {
+        this.handleP2PReviveRequest(fromPlayerId, payload);
+        return;
+      }
+      if (event === 'game:revive-request') {
+        this.reviveListeners.forEach((listener) => listener(payload));
+        return;
+      }
+      if (event === 'game:kill-enemies') {
+        this.handleP2PKillEnemiesRequest(fromPlayerId);
+        return;
+      }
+      if (event === 'game:kill-enemies-request') {
+        this.killEnemiesListeners.forEach((listener) => listener(payload));
+        return;
+      }
+      if (event === 'game:restart-level') {
+        this.restartListeners.forEach((listener) => listener(payload));
+      }
+    });
+
+    this.unsubscribeP2PStatus = p2p.onStatus((status) => {
+      this.p2pStatusListeners.forEach((listener) => listener(status));
+    });
+  }
+
+  handleP2PReviveRequest(fromPlayerId, payload) {
+    if (!this.isHost() || !payload?.targetPlayerId) return;
+    p2p.send('game:revive-request', { fromPlayerId }, payload.targetPlayerId);
+  }
+
+  handleP2PKillEnemiesRequest(fromPlayerId) {
+    if (!this.isHost()) return;
+    this.killEnemiesListeners.forEach((listener) => listener({ fromPlayerId }));
+  }
+
+  sendP2P(event, payload) {
+    if (!p2p.isReady()) return false;
+    if (this.isHost()) {
+      p2p.send(event, payload);
+    } else {
+      p2p.sendToHost(event, payload);
+    }
+    return true;
+  }
+
+  requiresP2P() {
+    return (this.room?.players?.length || 0) > 1;
   }
 
   emitWithAck(event, payload) {
@@ -237,6 +367,13 @@ class MultiplayerService {
       this.pingTimer = null;
       this.setLatency(null);
     });
+  }
+
+  stopPingMonitor() {
+    if (!this.pingTimer) return;
+    window.clearInterval(this.pingTimer);
+    this.pingTimer = null;
+    this.setLatency(null);
   }
 
   async measureLatency() {

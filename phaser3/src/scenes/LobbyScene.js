@@ -1,4 +1,5 @@
 import { HEIGHT, WIDTH } from '../core/constants.js';
+import { multiplayer } from '../services/MultiplayerService.js';
 
 const Phaser = window.Phaser;
 
@@ -51,8 +52,18 @@ export class LobbyScene extends Phaser.Scene {
   }
 
   createButtons() {
-    this.createButton(WIDTH / 2, HEIGHT - 120, 300, 70, 'PLAY SOLO', () => {
+    this.createButton(WIDTH / 2, HEIGHT - 164, 300, 58, 'PLAY SOLO', () => {
       this.scene.start('SelectionScene');
+    });
+    this.createButton(WIDTH / 2 - 170, HEIGHT - 92, 260, 54, 'HOST P2P', async () => {
+      await multiplayer.createRoom();
+      this.scene.start('SelectionScene', { multiplayer: true });
+    });
+    this.createButton(WIDTH / 2 + 170, HEIGHT - 92, 260, 54, 'JOIN P2P', async () => {
+      const code = window.prompt('Room code');
+      if (!code) return;
+      await multiplayer.joinRoom(code);
+      this.scene.start('SelectionScene', { multiplayer: true });
     });
   }
 

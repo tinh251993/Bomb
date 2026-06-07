@@ -8,6 +8,8 @@ export class GameView {
     this.model = model;
     this.remoteSprites = new Map();
     this.remoteStates = new Map();
+    this.remoteStateSeqs = new Map();
+    this.networkTargets = new Map();
     this.localStatusText = null;
     this.bossHealthBg = null;
     this.bossHealthFill = null;
@@ -305,11 +307,12 @@ export class GameView {
   }
 
   syncEnemy(enemy) {
-    const pos = GridMath.toWorld(enemy.gridX, enemy.gridY);
-    enemy.sprite.setPosition(pos.x, pos.y);
+    const pos = Number.isFinite(enemy.networkX) && Number.isFinite(enemy.networkY)
+      ? { x: enemy.networkX, y: enemy.networkY }
+      : GridMath.toWorld(enemy.gridX, enemy.gridY);
     enemy.sprite.setTexture(this.enemyTexture(enemy.direction));
     enemy.sprite.setVisible(enemy.isAlive());
-    this.updateSpriteDepth(enemy.sprite);
+    this.setNetworkTarget(enemy.sprite, pos.x, pos.y, `enemy:${enemy.id}`, () => this.updateSpriteDepth(enemy.sprite));
   }
 
   moveBoss(boss) {
@@ -328,11 +331,12 @@ export class GameView {
   syncBoss(boss = this.model.boss) {
     if (!boss?.sprite) return;
 
-    const pos = this.bossWorldPosition(boss);
-    boss.sprite.setPosition(pos.x, pos.y);
+    const pos = Number.isFinite(boss.networkX) && Number.isFinite(boss.networkY)
+      ? { x: boss.networkX, y: boss.networkY }
+      : this.bossWorldPosition(boss);
     boss.sprite.setVisible(boss.isAlive());
     this.setBossFlying(boss, boss.flying);
-    this.updateBossDepth(boss);
+    this.setNetworkTarget(boss.sprite, pos.x, pos.y, `boss:${boss.id}`, () => this.updateBossDepth(boss));
     this.updateBossHud();
   }
 
@@ -497,6 +501,20 @@ export class GameView {
     });
   }
 
+  restoreCrate(x, y) {
+    const exists = this.crateLayer.getChildren().some((crate) => crate.gridX === x && crate.gridY === y && crate.active);
+    if (exists) return;
+
+    const pos = GridMath.toWorld(x, y);
+    const crate = this.scene.add.image(pos.x, pos.y, 'crate').setDisplaySize(TILE, TILE).setDepth(this.depthForY(pos.y));
+    if (this.model.level === 4) crate.setTint(0xf3c65c);
+    if (this.model.level === 5) crate.setTint(0xd99a38);
+    if (this.model.level === 6) crate.setTint(0xd08b2f);
+    crate.gridX = x;
+    crate.gridY = y;
+    this.crateLayer.add(crate);
+  }
+
   removeTile(x, y) {
     this.removeCrate(x, y);
     this.wallLayer.getChildren().forEach((tile) => {
@@ -513,6 +531,11 @@ export class GameView {
 
   updateRemotePlayer(playerId, state) {
     if (!state || playerId === state.localPlayerId) return;
+    if (Number.isFinite(state.seq)) {
+      const lastSeq = this.remoteStateSeqs.get(playerId) || 0;
+      if (state.seq <= lastSeq) return;
+      this.remoteStateSeqs.set(playerId, state.seq);
+    }
 
     this.remoteStates.set(playerId, state);
     let sprite = this.remoteSprites.get(playerId);
@@ -527,8 +550,6 @@ export class GameView {
     }
 
     sprite.setTexture(textureKey);
-    sprite.x = state.x;
-    sprite.y = state.y;
     sprite.clearTint();
     sprite.setAlpha(0.82);
     sprite.setVisible(state.status !== 'dead');
@@ -536,7 +557,51 @@ export class GameView {
       sprite.setTint(0x93c5fd);
       sprite.setAlpha(0.56);
     }
-    this.updateSpriteDepth(sprite);
+    this.setNetworkTarget(sprite, state.x, state.y, `remote:${playerId}`, () => this.updateSpriteDepth(sprite));
+  }
+
+  setNetworkTarget(sprite, x, y, key, onUpdate) {
+    if (!sprite?.active) return;
+
+    const distance = Phaser.Math.Distance.Between(sprite.x, sprite.y, x, y);
+    if (distance > TILE * 2.4) {
+      sprite.setPosition(x, y);
+      onUpdate?.();
+      this.networkTargets.delete(key);
+      return;
+    }
+
+    this.networkTargets.set(key, {
+      sprite,
+      x,
+      y,
+      onUpdate
+    });
+  }
+
+  updateNetworkSprites(dt) {
+    const follow = Math.min(1, dt * 18);
+    this.networkTargets.forEach((target, key) => {
+      const sprite = target.sprite;
+      if (!sprite?.active) {
+        this.networkTargets.delete(key);
+        return;
+      }
+
+      const dx = target.x - sprite.x;
+      const dy = target.y - sprite.y;
+      const distance = Math.hypot(dx, dy);
+      if (distance <= 0.5) {
+        sprite.setPosition(target.x, target.y);
+        target.onUpdate?.();
+        this.networkTargets.delete(key);
+        return;
+      }
+
+      sprite.x += dx * follow;
+      sprite.y += dy * follow;
+      target.onUpdate?.();
+    });
   }
 
   findDownedRemoteTouching(sprite) {

@@ -1,0 +1,32 @@
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #08111f;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+#age-war-game {
+  width: 100%;
+  height: 100%;
+}
+
+canvas {
+  display: block;
+}
+
+.home-link {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 1000;
+  padding: 8px 12px;
+  border: 1px solid #64748b;
+  border-radius: 6px;
+  color: #f8fafc;
+  background: rgba(15, 23, 42, 0.86);
+  font: 800 13px Arial, Helvetica, sans-serif;
+  text-decoration: none;
+}
