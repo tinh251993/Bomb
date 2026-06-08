@@ -1,5 +1,6 @@
 import { BombTypes, BossBombType, DIRS, Direction, TILE, TileType } from '../core/constants.js';
 import { GridMath } from '../core/GridMath.js';
+import { Item } from '../entities/Item.js';
 import { multiplayer } from '../services/MultiplayerService.js';
 
 const Phaser = window.Phaser;
@@ -18,6 +19,8 @@ export class GameController {
     this.playerStateSeq = 0;
     this.worldStateSeq = 0;
     this.lastAppliedWorldStateSeq = 0;
+    this.lastFullWorldStateAt = 0;
+    this.lastWorldStateCache = null;
     this.unsubscribeRemoteState = null;
     this.unsubscribeRemoteBomb = null;
     this.unsubscribeRemoteWorldState = null;
@@ -762,12 +765,18 @@ export class GameController {
     const tile = GridMath.toGrid(this.model.player.sprite.x, this.model.player.sprite.y);
     const damageDisabled = this.model.player.isInvincible(this.scene.time.now);
     if (this.multiplayer.enabled && !this.isAuthoritativeHost()) {
+      const localBomb = this.model.placeBomb(tile.x, tile.y, { damageDisabled });
+      if (!localBomb) return;
+
+      this.view.createBombSprite(localBomb);
+      const localKey = GridMath.key(localBomb.gridX, localBomb.gridY);
+      localBomb.setTimer(this.scene.time.delayedCall(1650, () => this.explodeBomb(localKey)));
       multiplayer.sendBombPlace({
-        x: tile.x,
-        y: tile.y,
-        range: this.model.player.bombRange,
-        bombTypeId: this.model.player.currentBombType.id,
-        damageDisabled
+        x: localBomb.gridX,
+        y: localBomb.gridY,
+        range: localBomb.range,
+        bombTypeId: localBomb.type.id,
+        damageDisabled: localBomb.damageDisabled
       });
       return;
     }
@@ -944,7 +953,7 @@ export class GameController {
   }
 
   broadcastPlayerState(time) {
-    if (!this.multiplayer.enabled || time - this.lastStateSentAt < 80) return;
+    if (!this.multiplayer.enabled || time - this.lastStateSentAt < 50) return;
 
     const player = this.model.player;
     this.lastStateSentAt = time;
@@ -965,15 +974,91 @@ export class GameController {
   broadcastWorldState(time) {
     if (!this.multiplayer.enabled || time - this.lastWorldStateSentAt < 100) return;
 
+    const forceFull = !this.lastWorldStateCache || time - this.lastFullWorldStateAt > 1000;
+    const state = this.createWorldState({ full: forceFull });
+    if (!state) return;
+
+    if (state.full) this.lastFullWorldStateAt = time;
     this.lastWorldStateSentAt = time;
-    multiplayer.sendWorldState(this.createWorldState());
+    multiplayer.sendWorldState(state);
   }
 
-  createWorldState() {
-    return {
+  createWorldState(options = {}) {
+    const current = this.createWorldSnapshot();
+    const full = options.full || !this.lastWorldStateCache;
+    if (full) {
+      this.lastWorldStateCache = current;
+      return {
+        full: true,
+        seq: ++this.worldStateSeq,
+        ...current
+      };
+    }
+
+    const previous = this.lastWorldStateCache;
+    const state = {
+      full: false,
       seq: ++this.worldStateSeq,
+      score: current.score,
+      crateAdds: [],
+      crateRemoves: [],
+      bombAdds: [],
+      bombRemoves: [],
+      items: [],
+      itemAdds: [],
+      itemRemoves: [],
+      enemies: [],
+      removedEnemies: [],
+      bosses: [],
+      removedBosses: []
+    };
+
+    const previousCrates = new Set(previous.crates);
+    const currentCrates = new Set(current.crates);
+    state.crateAdds = current.crates.filter((key) => !previousCrates.has(key));
+    state.crateRemoves = previous.crates.filter((key) => !currentCrates.has(key));
+
+    const previousBombs = new Set(previous.bombs);
+    const currentBombs = new Set(current.bombs);
+    state.bombAdds = current.bombs.filter((key) => !previousBombs.has(key));
+    state.bombRemoves = previous.bombs.filter((key) => !currentBombs.has(key));
+
+    const previousItems = new Map(previous.items.map((item) => [item.key, item]));
+    const currentItems = new Map(current.items.map((item) => [item.key, item]));
+    state.itemAdds = current.items.filter((item) => !previousItems.has(item.key));
+    state.itemRemoves = previous.items.filter((item) => !currentItems.has(item.key)).map((item) => item.key);
+
+    const previousEnemies = new Map(previous.enemies.map((enemy) => [enemy.id, enemy]));
+    const currentEnemies = new Map(current.enemies.map((enemy) => [enemy.id, enemy]));
+    state.enemies = current.enemies.filter((enemy) => this.hasWorldEntityChanged(enemy, previousEnemies.get(enemy.id)));
+    state.removedEnemies = previous.enemies.filter((enemy) => !currentEnemies.has(enemy.id)).map((enemy) => enemy.id);
+
+    const previousBosses = new Map(previous.bosses.map((boss) => [boss.id, boss]));
+    const currentBosses = new Map(current.bosses.map((boss) => [boss.id, boss]));
+    state.bosses = current.bosses.filter((boss) => this.hasWorldEntityChanged(boss, previousBosses.get(boss.id)));
+    state.removedBosses = previous.bosses.filter((boss) => !currentBosses.has(boss.id)).map((boss) => boss.id);
+
+    this.lastWorldStateCache = current;
+    const hasChanges = state.score !== previous.score
+      || state.crateAdds.length > 0
+      || state.crateRemoves.length > 0
+      || state.bombAdds.length > 0
+      || state.bombRemoves.length > 0
+      || state.itemAdds.length > 0
+      || state.itemRemoves.length > 0
+      || state.enemies.length > 0
+      || state.removedEnemies.length > 0
+      || state.bosses.length > 0
+      || state.removedBosses.length > 0;
+    return hasChanges ? state : null;
+  }
+
+  createWorldSnapshot() {
+    return {
       score: this.model.score,
       crates: this.getCrateState(),
+      bombs: Array.from(this.model.bombs.keys()),
+      items: this.getItemState(),
       enemies: this.model.enemies.filter((enemy) => enemy.isAlive()).map((enemy) => ({
         id: enemy.id,
         x: enemy.gridX,
@@ -999,6 +1084,19 @@ export class GameController {
     };
   }
 
+  hasWorldEntityChanged(current, previous) {
+    if (!previous) return true;
+    return current.x !== previous.x
+      || current.y !== previous.y
+      || Math.abs((current.worldX || 0) - (previous.worldX || 0)) > 2
+      || Math.abs((current.worldY || 0) - (previous.worldY || 0)) > 2
+      || current.direction !== previous.direction
+      || current.bossType !== previous.bossType
+      || current.health !== previous.health
+      || current.bombRange !== previous.bombRange
+      || current.flying !== previous.flying;
+  }
+
   applyWorldState(state) {
     if (!state) return;
     if (Number.isFinite(state.seq)) {
@@ -1006,12 +1104,27 @@ export class GameController {
       this.lastAppliedWorldStateSeq = state.seq;
     }
     if (Number.isFinite(state.score)) this.model.score = state.score;
-    if (Array.isArray(state.crates)) this.applyCrateState(state.crates);
+    if (state.full && Array.isArray(state.crates)) this.applyCrateState(state.crates);
+    if (Array.isArray(state.crateAdds) || Array.isArray(state.crateRemoves)) {
+      this.applyCrateDelta(state.crateAdds || [], state.crateRemoves || []);
+    }
+    if (state.full && Array.isArray(state.bombs)) this.applyBombState(state.bombs);
+    if (Array.isArray(state.bombRemoves)) this.applyBombDelta(state.bombRemoves);
+    if (state.full && Array.isArray(state.items)) this.applyItemState(state.items);
+    if (Array.isArray(state.itemAdds) || Array.isArray(state.itemRemoves)) {
+      this.applyItemDelta(state.itemAdds || [], state.itemRemoves || []);
+    }
 
-    const liveEnemyIds = new Set((state.enemies || []).map((enemyState) => enemyState.id));
-    this.model.enemies.forEach((enemy) => {
-      if (liveEnemyIds.has(enemy.id)) return;
-      enemy.destroy();
+    if (state.full) {
+      const liveEnemyIds = new Set((state.enemies || []).map((enemyState) => enemyState.id));
+      this.model.enemies.forEach((enemy) => {
+        if (liveEnemyIds.has(enemy.id)) return;
+        enemy.destroy();
+      });
+    }
+    (state.removedEnemies || []).forEach((enemyId) => {
+      const enemy = this.model.enemies.find((item) => item.id === enemyId);
+      enemy?.destroy();
     });
 
     state.enemies?.forEach((enemyState) => {
@@ -1042,6 +1155,18 @@ export class GameController {
     });
 
     this.model.enemies = this.model.enemies.filter((enemy) => enemy.isAlive());
+
+    if (state.full) {
+      const liveBossIds = new Set((state.bosses || []).map((bossState) => bossState.id));
+      this.model.bosses.forEach((boss) => {
+        if (liveBossIds.has(boss.id)) return;
+        boss.destroy();
+      });
+    }
+    (state.removedBosses || []).forEach((bossId) => {
+      const boss = this.model.bosses.find((item) => item.id === bossId);
+      boss?.destroy();
+    });
 
     const bossStates = state.bosses || (state.boss ? [{ id: 'boss-0', ...state.boss }] : []);
     bossStates.forEach((bossState) => {
@@ -1097,6 +1222,15 @@ export class GameController {
     return crates;
   }
 
+  getItemState() {
+    return Array.from(this.model.items.entries()).map(([key, item]) => ({
+      key,
+      x: item.gridX,
+      y: item.gridY,
+      type: item.type
+    }));
+  }
+
   applyCrateState(crateKeys) {
     const hostCrates = new Set(crateKeys);
     for (let y = 0; y < this.model.map.grid.length; y++) {
@@ -1115,6 +1249,72 @@ export class GameController {
         }
       }
     }
+  }
+
+  applyCrateDelta(crateAdds, crateRemoves) {
+    crateRemoves.forEach((key) => {
+      const [x, y] = key.split(',').map((value) => Number.parseInt(value, 10));
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+      if (this.model.map.get(x, y) !== TileType.CRATE) return;
+      this.model.map.set(x, y, TileType.EMPTY);
+      this.view.removeCrate(x, y);
+    });
+
+    crateAdds.forEach((key) => {
+      const [x, y] = key.split(',').map((value) => Number.parseInt(value, 10));
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+      if (this.model.map.get(x, y) !== TileType.EMPTY) return;
+      this.model.map.set(x, y, TileType.CRATE);
+      this.view.restoreCrate(x, y);
+    });
+  }
+
+  applyBombState(bombKeys) {
+    const hostBombs = new Set(bombKeys);
+    Array.from(this.model.bombs.keys()).forEach((key) => {
+      if (hostBombs.has(key)) return;
+      const bomb = this.model.removeBomb(key);
+      bomb?.timer?.remove?.(false);
+    });
+  }
+
+  applyBombDelta(bombRemoves) {
+    bombRemoves.forEach((key) => {
+      const bomb = this.model.removeBomb(key);
+      bomb?.timer?.remove?.(false);
+    });
+  }
+
+  applyItemState(items) {
+    const hostItems = new Map(items.map((item) => [item.key || GridMath.key(item.x, item.y), item]));
+    Array.from(this.model.items.keys()).forEach((key) => {
+      if (hostItems.has(key)) return;
+      const [x, y] = key.split(',').map((value) => Number.parseInt(value, 10));
+      this.model.removeItemAt(x, y);
+    });
+
+    hostItems.forEach((item, key) => {
+      if (this.model.items.has(key)) return;
+      this.addSyncedItem(item);
+    });
+  }
+
+  applyItemDelta(itemAdds, itemRemoves) {
+    itemRemoves.forEach((key) => {
+      const [x, y] = key.split(',').map((value) => Number.parseInt(value, 10));
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+      this.model.removeItemAt(x, y);
+    });
+
+    itemAdds.forEach((item) => this.addSyncedItem(item));
+  }
+
+  addSyncedItem(itemState) {
+    const key = itemState.key || GridMath.key(itemState.x, itemState.y);
+    if (this.model.items.has(key)) return;
+    const item = new Item(itemState.x, itemState.y, itemState.type || 'bomb');
+    this.model.items.set(key, item);
+    this.view.drawItem(item);
   }
 
   downLocalPlayer() {

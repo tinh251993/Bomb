@@ -9,6 +9,7 @@ export class GameView {
     this.remoteSprites = new Map();
     this.remoteStates = new Map();
     this.remoteStateSeqs = new Map();
+    this.remoteMotionFrames = new Map();
     this.networkTargets = new Map();
     this.localStatusText = null;
     this.bossHealthBg = null;
@@ -557,7 +558,56 @@ export class GameView {
       sprite.setTint(0x93c5fd);
       sprite.setAlpha(0.56);
     }
-    this.setNetworkTarget(sprite, state.x, state.y, `remote:${playerId}`, () => this.updateSpriteDepth(sprite));
+    const target = this.predictRemoteTarget(playerId, state);
+    this.setNetworkTarget(sprite, target.x, target.y, `remote:${playerId}`, () => this.updateSpriteDepth(sprite));
+  }
+
+  predictRemoteTarget(playerId, state) {
+    const now = performance.now();
+    const previous = this.remoteMotionFrames.get(playerId);
+    this.remoteMotionFrames.set(playerId, {
+      x: state.x,
+      y: state.y,
+      time: now
+    });
+
+    if (state.status !== 'alive') return { x: state.x, y: state.y };
+
+    let leadX = 0;
+    let leadY = 0;
+    if (previous) {
+      const elapsed = Math.max(16, now - previous.time);
+      const vx = (state.x - previous.x) / elapsed;
+      const vy = (state.y - previous.y) / elapsed;
+      leadX = vx * 65;
+      leadY = vy * 65;
+    }
+
+    if (Math.hypot(leadX, leadY) < 2) {
+      const direction = this.directionVector(state.direction);
+      leadX = direction.x * 8;
+      leadY = direction.y * 8;
+    }
+
+    const leadDistance = Math.hypot(leadX, leadY);
+    if (leadDistance > 14) {
+      const scale = 14 / leadDistance;
+      leadX *= scale;
+      leadY *= scale;
+    }
+
+    return {
+      x: state.x + leadX,
+      y: state.y + leadY
+    };
+  }
+
+  directionVector(direction) {
+    if (direction === 'left') return { x: -1, y: 0 };
+    if (direction === 'right') return { x: 1, y: 0 };
+    if (direction === 'up') return { x: 0, y: -1 };
+    if (direction === 'down') return { x: 0, y: 1 };
+    return { x: 0, y: 0 };
   }
 
   setNetworkTarget(sprite, x, y, key, onUpdate) {
@@ -580,7 +630,7 @@ export class GameView {
   }
 
   updateNetworkSprites(dt) {
-    const follow = Math.min(1, dt * 18);
+    const follow = Math.min(1, dt * 24);
     this.networkTargets.forEach((target, key) => {
       const sprite = target.sprite;
       if (!sprite?.active) {

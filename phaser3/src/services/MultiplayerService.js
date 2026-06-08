@@ -148,6 +148,7 @@ class MultiplayerService {
   }
 
   sendWorldState(state) {
+    if (!state) return;
     if (!this.socket?.connected || !this.room?.started || !this.isHost()) return;
     if (this.requiresP2P()) {
       this.sendP2P('game:world-state', state);
