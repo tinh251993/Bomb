@@ -70,8 +70,9 @@ export class GameModel {
     this.mapType = this.customMap?.type || (Number(options.level || 1) >= 4 ? 'forest' : 'pirate');
     this.level = Math.min(MAX_LEVEL, Math.max(1, options.level || 1));
     this.mapSeed = options.mapSeed || 'solo';
-    const spawn = SHARED_PLAYER_SPAWN;
     this.map = new TileMap(this.level, this.mapSeed, this.customMap?.layout);
+    this.playerSpawn = this.resolvePlayerSpawn(this.playerIndex);
+    const spawn = this.playerSpawn;
     this.player = new Player(spawn.x, spawn.y, this.selectedCharacter, this.selectedBombType);
     this.applyPlayerStats(options.playerStats);
     this.infiniteLives = Boolean(options.infiniteLives || options.playerStats?.infiniteLives);
@@ -86,7 +87,7 @@ export class GameModel {
     this.levelDeathCount = Math.max(0, Number(options.levelDeathCount || options.playerStats?.levelDeathCount || 0));
     this.gameOver = false;
     this.won = false;
-    this.spawnEnemies();
+    if (!options.deferActors) this.spawnEnemies();
   }
 
   applyPlayerStats(stats) {
@@ -202,6 +203,32 @@ export class GameModel {
     return boss;
   }
 
+  createSyncedEnemy(state) {
+    const enemy = new Enemy(state.x, state.y, this.speedMultiplier);
+    enemy.id = state.id || `enemy-${this.enemies.length}`;
+    enemy.setDirection(state.direction || enemy.direction);
+    enemy.networkX = Number.isFinite(state.worldX) ? state.worldX : null;
+    enemy.networkY = Number.isFinite(state.worldY) ? state.worldY : null;
+    this.enemies.push(enemy);
+    return enemy;
+  }
+
+  createSyncedBoss(state) {
+    const bossType = this.resolveBossType(state.bossType);
+    const BossClass = bossType.id === 'eagle' ? EagleBoss : PirateBoss;
+    const boss = new BossClass(state.x, state.y, 1.2 * this.speedMultiplier, bossType);
+    boss.id = state.id || `boss-${this.bosses.length}`;
+    boss.setDirection(state.direction || boss.direction);
+    if (Number.isFinite(state.health)) boss.health = state.health;
+    if (Number.isFinite(state.bombRange)) boss.bombRange = state.bombRange;
+    boss.flying = Boolean(state.flying);
+    boss.networkX = Number.isFinite(state.worldX) ? state.worldX : null;
+    boss.networkY = Number.isFinite(state.worldY) ? state.worldY : null;
+    this.bosses.push(boss);
+    this.boss = this.bosses.find((item) => item.isAlive()) || boss;
+    return boss;
+  }
+
   resolveBossType(typeId) {
     return BossTypes.find((type) => type.id === typeId) || DEFAULT_BOSS_TYPE;
   }
@@ -227,10 +254,24 @@ export class GameModel {
     this.infiniteLives = true;
   }
 
+  resolvePlayerSpawn(playerIndex) {
+    const playerNumber = Math.min(4, Math.max(1, Number(playerIndex || 0) + 1));
+    const spawnObject = this.customMap?.objects?.find((object) => {
+      return object.kind === 'playerSpawn' && Number(object.player) === playerNumber;
+    });
+    if (!spawnObject) return SHARED_PLAYER_SPAWN;
+
+    const x = Math.min(this.map.grid[0].length - 2, Math.max(1, Number(spawnObject.x) || SHARED_PLAYER_SPAWN.x));
+    const y = Math.min(this.map.grid.length - 2, Math.max(1, Number(spawnObject.y) || SHARED_PLAYER_SPAWN.y));
+    if (this.map.isEmpty(x, y)) return { x, y };
+    return this.map.findNearestOpen(x, y);
+  }
+
   respawnPlayer(invincibleUntil) {
-    this.player.setGridPosition(SHARED_PLAYER_SPAWN.x, SHARED_PLAYER_SPAWN.y);
+    const spawn = this.playerSpawn || SHARED_PLAYER_SPAWN;
+    this.player.setGridPosition(spawn.x, spawn.y);
     this.player.respawn(invincibleUntil);
-    return SHARED_PLAYER_SPAWN;
+    return spawn;
   }
 
   recordLevelDeath() {

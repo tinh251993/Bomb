@@ -208,17 +208,17 @@ class P2PService {
     if (!message) return;
     const targets = targetPeerId ? [this.peers.get(targetPeerId)] : Array.from(this.peers.values());
     targets.forEach((peer) => {
-      const channel = this.isStateEvent(event) ? peer?.stateChannel : peer?.eventChannel;
+      const channel = this.isStateEvent(event, payload) ? peer?.stateChannel : peer?.eventChannel;
       if (!peer || channel?.readyState !== 'open') return;
       if (channel.bufferedAmount > this.maxBufferedAmount) return;
       channel.send(message);
     });
   }
 
-  isStateEvent(event) {
+  isStateEvent(event, payload = null) {
     return event === 'game:player-state'
       || event === 'game:player-state-relay'
-      || event === 'game:world-state';
+      || (event === 'game:world-state' && !payload?.full);
   }
 
   sendToHost(event, payload) {

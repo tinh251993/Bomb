@@ -953,7 +953,7 @@ export class GameController {
   }
 
   broadcastPlayerState(time) {
-    if (!this.multiplayer.enabled || time - this.lastStateSentAt < 50) return;
+    if (!this.multiplayer.enabled || time - this.lastStateSentAt < 33) return;
 
     const player = this.model.player;
     this.lastStateSentAt = time;
@@ -974,7 +974,7 @@ export class GameController {
   broadcastWorldState(time) {
     if (!this.multiplayer.enabled || time - this.lastWorldStateSentAt < 100) return;
 
-    const forceFull = !this.lastWorldStateCache || time - this.lastFullWorldStateAt > 1000;
+    const forceFull = !this.lastWorldStateCache || time - this.lastFullWorldStateAt > 500;
     const state = this.createWorldState({ full: forceFull });
     if (!state) return;
 
@@ -1128,8 +1128,11 @@ export class GameController {
     });
 
     state.enemies?.forEach((enemyState) => {
-      const enemy = this.model.enemies.find((item) => item.id === enemyState.id);
-      if (!enemy) return;
+      let enemy = this.model.enemies.find((item) => item.id === enemyState.id);
+      if (!enemy) {
+        enemy = this.model.createSyncedEnemy(enemyState);
+        this.view.createEnemySprite(enemy);
+      }
 
       if (!enemyState.alive) {
         enemy.destroy();
@@ -1139,7 +1142,8 @@ export class GameController {
       const nextDirection = enemyState.direction || enemy.direction;
       const nextEnemyWorldX = Number.isFinite(enemyState.worldX) ? enemyState.worldX : null;
       const nextEnemyWorldY = Number.isFinite(enemyState.worldY) ? enemyState.worldY : null;
-      const changed = enemy.gridX !== enemyState.x
+      const changed = state.full
+        || enemy.gridX !== enemyState.x
         || enemy.gridY !== enemyState.y
         || enemy.direction !== nextDirection
         || Math.abs((enemy.networkX ?? -9999) - (nextEnemyWorldX ?? -9999)) > 2
@@ -1151,7 +1155,7 @@ export class GameController {
       enemy.setDirection(nextDirection);
       enemy.networkX = nextEnemyWorldX;
       enemy.networkY = nextEnemyWorldY;
-      this.view.syncEnemy(enemy);
+      this.view.syncEnemy(enemy, { snap: state.full });
     });
 
     this.model.enemies = this.model.enemies.filter((enemy) => enemy.isAlive());
@@ -1170,8 +1174,11 @@ export class GameController {
 
     const bossStates = state.bosses || (state.boss ? [{ id: 'boss-0', ...state.boss }] : []);
     bossStates.forEach((bossState) => {
-      const boss = this.model.bosses.find((item) => item.id === bossState.id);
-      if (!boss) return;
+      let boss = this.model.bosses.find((item) => item.id === bossState.id);
+      if (!boss) {
+        boss = this.model.createSyncedBoss(bossState);
+        this.view.createBossSprite(boss);
+      }
 
       if (!bossState.alive) {
         boss.destroy();
@@ -1184,7 +1191,8 @@ export class GameController {
       const nextFlying = Boolean(bossState.flying);
       const nextBossWorldX = Number.isFinite(bossState.worldX) ? bossState.worldX : null;
       const nextBossWorldY = Number.isFinite(bossState.worldY) ? bossState.worldY : null;
-      const changed = boss.gridX !== bossState.x
+      const changed = state.full
+        || boss.gridX !== bossState.x
         || boss.gridY !== bossState.y
         || Math.abs((boss.networkX ?? -9999) - (nextBossWorldX ?? -9999)) > 2
         || Math.abs((boss.networkY ?? -9999) - (nextBossWorldY ?? -9999)) > 2
@@ -1206,7 +1214,7 @@ export class GameController {
       if (!changed) return;
 
       this.view.setBossDirection(boss.direction, boss);
-      this.view.syncBoss(boss);
+      this.view.syncBoss(boss, { snap: state.full });
     });
     this.model.boss = this.model.bosses.find((boss) => boss.isAlive()) || null;
     this.view.updateHud();

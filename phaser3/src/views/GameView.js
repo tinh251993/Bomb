@@ -9,7 +9,6 @@ export class GameView {
     this.remoteSprites = new Map();
     this.remoteStates = new Map();
     this.remoteStateSeqs = new Map();
-    this.remoteMotionFrames = new Map();
     this.networkTargets = new Map();
     this.localStatusText = null;
     this.bossHealthBg = null;
@@ -117,21 +116,33 @@ export class GameView {
   }
 
   drawEnemies() {
-    this.model.enemies.forEach((enemy) => {
-      const pos = GridMath.toWorld(enemy.gridX, enemy.gridY);
-      const sprite = this.scene.add.sprite(pos.x, pos.y, this.enemyTexture(enemy.direction)).setDisplaySize(42, 42);
-      this.updateSpriteDepth(sprite);
-      enemy.attachSprite(sprite);
-    });
+    this.model.enemies.forEach((enemy) => this.createEnemySprite(enemy));
+  }
+
+  createEnemySprite(enemy) {
+    if (enemy.sprite) return enemy.sprite;
+    const pos = Number.isFinite(enemy.networkX) && Number.isFinite(enemy.networkY)
+      ? { x: enemy.networkX, y: enemy.networkY }
+      : GridMath.toWorld(enemy.gridX, enemy.gridY);
+    const sprite = this.scene.add.sprite(pos.x, pos.y, this.enemyTexture(enemy.direction)).setDisplaySize(42, 42);
+    this.updateSpriteDepth(sprite);
+    enemy.attachSprite(sprite);
+    return sprite;
   }
 
   drawBoss() {
-    this.model.bosses.forEach((boss) => {
-      const pos = this.bossWorldPosition(boss);
-      const sprite = this.scene.add.sprite(pos.x, pos.y, this.bossTexture('down', boss)).setDisplaySize(TILE * 2, TILE * 2);
-      this.updateSpriteDepth(sprite);
-      boss.attachSprite(sprite);
-    });
+    this.model.bosses.forEach((boss) => this.createBossSprite(boss));
+  }
+
+  createBossSprite(boss) {
+    if (boss.sprite) return boss.sprite;
+    const pos = Number.isFinite(boss.networkX) && Number.isFinite(boss.networkY)
+      ? { x: boss.networkX, y: boss.networkY }
+      : this.bossWorldPosition(boss);
+    const sprite = this.scene.add.sprite(pos.x, pos.y, this.bossTexture('down', boss)).setDisplaySize(TILE * 2, TILE * 2);
+    this.updateSpriteDepth(sprite);
+    boss.attachSprite(sprite);
+    return sprite;
   }
 
   drawHud() {
@@ -307,12 +318,19 @@ export class GameView {
     });
   }
 
-  syncEnemy(enemy) {
+  syncEnemy(enemy, options = {}) {
+    if (!enemy.sprite) this.createEnemySprite(enemy);
     const pos = Number.isFinite(enemy.networkX) && Number.isFinite(enemy.networkY)
       ? { x: enemy.networkX, y: enemy.networkY }
       : GridMath.toWorld(enemy.gridX, enemy.gridY);
     enemy.sprite.setTexture(this.enemyTexture(enemy.direction));
     enemy.sprite.setVisible(enemy.isAlive());
+    if (options.snap) {
+      enemy.sprite.setPosition(pos.x, pos.y);
+      this.updateSpriteDepth(enemy.sprite);
+      this.networkTargets.delete(`enemy:${enemy.id}`);
+      return;
+    }
     this.setNetworkTarget(enemy.sprite, pos.x, pos.y, `enemy:${enemy.id}`, () => this.updateSpriteDepth(enemy.sprite));
   }
 
@@ -329,14 +347,22 @@ export class GameView {
     });
   }
 
-  syncBoss(boss = this.model.boss) {
-    if (!boss?.sprite) return;
+  syncBoss(boss = this.model.boss, options = {}) {
+    if (!boss) return;
+    if (!boss.sprite) this.createBossSprite(boss);
 
     const pos = Number.isFinite(boss.networkX) && Number.isFinite(boss.networkY)
       ? { x: boss.networkX, y: boss.networkY }
       : this.bossWorldPosition(boss);
     boss.sprite.setVisible(boss.isAlive());
     this.setBossFlying(boss, boss.flying);
+    if (options.snap) {
+      boss.sprite.setPosition(pos.x, pos.y);
+      this.updateBossDepth(boss);
+      this.updateBossHud();
+      this.networkTargets.delete(`boss:${boss.id}`);
+      return;
+    }
     this.setNetworkTarget(boss.sprite, pos.x, pos.y, `boss:${boss.id}`, () => this.updateBossDepth(boss));
     this.updateBossHud();
   }
@@ -558,56 +584,7 @@ export class GameView {
       sprite.setTint(0x93c5fd);
       sprite.setAlpha(0.56);
     }
-    const target = this.predictRemoteTarget(playerId, state);
-    this.setNetworkTarget(sprite, target.x, target.y, `remote:${playerId}`, () => this.updateSpriteDepth(sprite));
-  }
-
-  predictRemoteTarget(playerId, state) {
-    const now = performance.now();
-    const previous = this.remoteMotionFrames.get(playerId);
-    this.remoteMotionFrames.set(playerId, {
-      x: state.x,
-      y: state.y,
-      time: now
-    });
-
-    if (state.status !== 'alive') return { x: state.x, y: state.y };
-
-    let leadX = 0;
-    let leadY = 0;
-    if (previous) {
-      const elapsed = Math.max(16, now - previous.time);
-      const vx = (state.x - previous.x) / elapsed;
-      const vy = (state.y - previous.y) / elapsed;
-      leadX = vx * 65;
-      leadY = vy * 65;
-    }
-
-    if (Math.hypot(leadX, leadY) < 2) {
-      const direction = this.directionVector(state.direction);
-      leadX = direction.x * 8;
-      leadY = direction.y * 8;
-    }
-
-    const leadDistance = Math.hypot(leadX, leadY);
-    if (leadDistance > 14) {
-      const scale = 14 / leadDistance;
-      leadX *= scale;
-      leadY *= scale;
-    }
-
-    return {
-      x: state.x + leadX,
-      y: state.y + leadY
-    };
-  }
-
-  directionVector(direction) {
-    if (direction === 'left') return { x: -1, y: 0 };
-    if (direction === 'right') return { x: 1, y: 0 };
-    if (direction === 'up') return { x: 0, y: -1 };
-    if (direction === 'down') return { x: 0, y: 1 };
-    return { x: 0, y: 0 };
+    this.setNetworkTarget(sprite, state.x, state.y, `remote:${playerId}`, () => this.updateSpriteDepth(sprite));
   }
 
   setNetworkTarget(sprite, x, y, key, onUpdate) {
@@ -630,7 +607,7 @@ export class GameView {
   }
 
   updateNetworkSprites(dt) {
-    const follow = Math.min(1, dt * 24);
+    const follow = Math.min(1, dt * 20);
     this.networkTargets.forEach((target, key) => {
       const sprite = target.sprite;
       if (!sprite?.active) {

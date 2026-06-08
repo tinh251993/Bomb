@@ -224,7 +224,7 @@ function readBalancedArray(text, startIndex) {
 
 function isValidObject(object) {
   return object
-    && ['boss', 'enemy', 'asset'].includes(object.kind)
+    && ['boss', 'enemy', 'asset', 'playerSpawn'].includes(object.kind)
     && Number.isInteger(object.x)
     && Number.isInteger(object.y);
 }
@@ -545,6 +545,16 @@ function placeObject(x, y) {
     return;
   }
 
+  if (currentMode === 'playerSpawn') {
+    const player = Number.parseInt(document.querySelector('.object-tool.active')?.dataset.playerSpawn || '1', 10);
+    const playerNumber = Math.min(4, Math.max(1, player || 1));
+    objects = objects.filter((object) => object.kind !== 'playerSpawn' || object.player !== playerNumber);
+    objects.push({ kind: 'playerSpawn', player: playerNumber, x, y, width: 1, height: 1 });
+    renderBoard();
+    setStatus(`Player ${playerNumber} spawn set.`);
+    return;
+  }
+
   if (currentMode === 'asset' && selectedAssetId) {
     const asset = readUploadedAssets().find((item) => item.id === selectedAssetId);
     if (!asset) return;
@@ -575,7 +585,7 @@ function renderObjects() {
     if (!cell) return;
 
     const marker = document.createElement('span');
-    marker.className = `cell-object ${object.kind === 'boss' ? 'boss-object' : object.kind === 'enemy' ? 'enemy-object' : 'asset-object'}`;
+    marker.className = `cell-object ${object.kind === 'boss' ? 'boss-object' : object.kind === 'enemy' ? 'enemy-object' : object.kind === 'playerSpawn' ? 'player-spawn-object' : 'asset-object'}`;
     marker.dataset.objectIndex = String(index);
     if (object.kind === 'boss') {
       const bossType = getBossType(object.bossType || object.type);
@@ -594,6 +604,9 @@ function renderObjects() {
       const asset = assets.find((item) => item.id === object.assetId);
       if (!asset) return;
       marker.appendChild(createPreviewImage(asset, ''));
+    }
+    if (object.kind === 'playerSpawn') {
+      marker.textContent = `P${object.player || 1}`;
     }
     cell.appendChild(marker);
   });
@@ -658,11 +671,22 @@ function objectLabel(object) {
   const size = `${object.width || 1}x${object.height || 1}`;
   if (object.kind === 'boss') return `${getBossType(object.bossType || object.type).name} ${size} (${object.x},${object.y})`;
   if (object.kind === 'enemy') return `Enemy (${object.x},${object.y})`;
+  if (object.kind === 'playerSpawn') return `Player ${object.player || 1} Spawn (${object.x},${object.y})`;
   return `${object.name || 'Asset'} (${object.x},${object.y})`;
 }
 
 function exportObjects() {
   return objects.map((object) => {
+    if (object.kind === 'playerSpawn') {
+      return {
+        kind: 'playerSpawn',
+        player: Math.min(4, Math.max(1, Number(object.player) || 1)),
+        x: object.x,
+        y: object.y,
+        width: 1,
+        height: 1
+      };
+    }
     if (object.kind !== 'boss') return { ...object };
     return {
       ...object,
@@ -693,6 +717,8 @@ objectTools.forEach((tool) => {
       setStatus(`Click map to place 2x2 ${getBossType(bossTypeInput.value).name}.`);
     } else if (currentMode === 'enemy') {
       setStatus('Click map to place enemy.');
+    } else if (currentMode === 'playerSpawn') {
+      setStatus(`Click map to place player ${tool.dataset.playerSpawn || 1} spawn.`);
     } else {
       setStatus('Click object to remove it.');
     }

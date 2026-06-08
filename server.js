@@ -338,16 +338,20 @@ function sanitizeCustomMap(customMap) {
     type: customMap.type === 'forest' ? 'forest' : 'pirate',
     name: String(customMap.name || 'custom').slice(0, 40),
     layout,
-    objects: Array.isArray(customMap.objects) ? customMap.objects.slice(0, 32).map((object) => ({
-      kind: ['boss', 'enemy', 'asset'].includes(object.kind) ? object.kind : 'asset',
-      x: Number(object.x) || 0,
-      y: Number(object.y) || 0,
-      width: Number(object.width) || 1,
-      height: Number(object.height) || 1,
-      bossType: ['pirate', 'eagle'].includes(object.bossType) ? object.bossType : undefined,
-      assetId: object.assetId ? String(object.assetId).slice(0, 80) : undefined,
-      name: object.name ? String(object.name).slice(0, 80) : undefined
-    })) : []
+    objects: Array.isArray(customMap.objects) ? customMap.objects.slice(0, 40).map((object) => {
+      const kind = ['boss', 'enemy', 'asset', 'playerSpawn'].includes(object.kind) ? object.kind : 'asset';
+      return {
+        kind,
+        player: kind === 'playerSpawn' ? Math.min(4, Math.max(1, Number(object.player) || 1)) : undefined,
+        x: Number(object.x) || 0,
+        y: Number(object.y) || 0,
+        width: Number(object.width) || 1,
+        height: Number(object.height) || 1,
+        bossType: ['pirate', 'eagle'].includes(object.bossType) ? object.bossType : undefined,
+        assetId: object.assetId ? String(object.assetId).slice(0, 80) : undefined,
+        name: object.name ? String(object.name).slice(0, 80) : undefined
+      };
+    }) : []
   };
 }
 

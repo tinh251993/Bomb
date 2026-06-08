@@ -30,7 +30,8 @@ export class GameScene extends Phaser.Scene {
       level: data.level || 1,
       customMap: data.customMap || data.room?.customMap || null,
       score: data.score || 0,
-      playerStats: data.playerStats
+      playerStats: data.playerStats,
+      deferActors: Boolean(data.multiplayer && data.room?.hostId !== data.playerId)
     });
     this.view = new GameView(this, this.model);
     this.view.create();
