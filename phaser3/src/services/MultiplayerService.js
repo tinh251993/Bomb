@@ -18,6 +18,8 @@ class MultiplayerService {
     this.latencyListeners = new Set();
     this.latencyMs = null;
     this.pingTimer = null;
+    this.p2pFailed = false;
+    this.iceServersLoaded = false;
     this.p2pStatusListeners = new Set();
     this.unsubscribeP2PMessage = null;
     this.unsubscribeP2PStatus = null;
@@ -111,7 +113,7 @@ class MultiplayerService {
 
   async reportLoadingReady() {
     if (this.room?.players?.length > 1) {
-      await this.ensureP2PReady();
+      await this.ensureP2PReady().catch(() => {});
     }
     const response = await this.emitWithAck('room:loading-ready', {});
     if (!response.ok) throw new Error(response.message || 'Could not confirm loading.');
@@ -120,7 +122,7 @@ class MultiplayerService {
   }
 
   async enterGame() {
-    if (this.room?.players?.length > 1) await this.ensureP2PReady();
+    if (this.room?.players?.length > 1) await this.ensureP2PReady().catch(() => {});
     const response = await this.emitWithAck('game:enter', {});
     if (response?.room) this.setRoom(response.room);
     return response;
@@ -133,49 +135,57 @@ class MultiplayerService {
 
   sendPlayerState(state) {
     if (!this.socket?.connected || !this.room?.started) return;
-    if (this.requiresP2P()) {
+    if (this.shouldUseP2P()) {
       this.sendP2P('game:player-state', state);
       return;
     }
+    this.socket.emit('game:player-state', state);
   }
 
   sendBombPlace(bomb) {
     if (!this.socket?.connected || !this.room?.started) return;
-    if (this.requiresP2P()) {
+    if (this.shouldUseP2P()) {
       this.sendP2P('game:bomb-place', bomb);
       return;
     }
+    this.socket.emit('game:bomb-place', bomb);
   }
 
   sendWorldState(state) {
     if (!state) return;
     if (!this.socket?.connected || !this.room?.started || !this.isHost()) return;
-    if (this.requiresP2P()) {
+    if (this.shouldUseP2P()) {
       this.sendP2P('game:world-state', state);
       return;
     }
+    this.socket.emit('game:world-state', state);
   }
 
   requestRevive(targetPlayerId) {
     if (!this.socket?.connected || !this.room?.started || !targetPlayerId) return;
-    if (this.requiresP2P()) {
+    if (this.shouldUseP2P()) {
       this.sendP2P('game:revive-player', { targetPlayerId });
       return;
     }
+    this.socket.emit('game:revive-player', { targetPlayerId });
   }
 
   requestKillEnemies() {
     if (!this.socket?.connected || !this.room?.started) return;
-    if (this.requiresP2P()) {
+    if (this.shouldUseP2P()) {
       this.sendP2P('game:kill-enemies', {});
+      return;
     }
+    this.socket.emit('game:kill-enemies');
   }
 
   sendRestartLevel(payload) {
     if (!this.socket?.connected || !this.room?.started || !this.isHost()) return;
-    if (this.requiresP2P()) {
+    if (this.shouldUseP2P()) {
       this.sendP2P('game:restart-level', payload);
+      return;
     }
+    this.socket.emit('game:restart-level', payload);
   }
 
   onRoomUpdate(listener) {
@@ -269,10 +279,35 @@ class MultiplayerService {
 
   async ensureP2PReady() {
     if (!this.room || !this.playerId || this.room.players.length <= 1) return;
+    if (this.p2pFailed) return;
     this.bindP2PEvents();
-    await p2p.connectRoom(this.room, this.playerId, (targetPlayerId, type, payload) => {
-      return this.emitWithAck('p2p:signal', { targetPlayerId, type, payload });
-    });
+    await this.loadIceServers();
+    try {
+      await p2p.connectRoom(this.room, this.playerId, (targetPlayerId, type, payload) => {
+        return this.emitWithAck('p2p:signal', { targetPlayerId, type, payload });
+      });
+    } catch (error) {
+      this.p2pFailed = true;
+      this.p2pStatusListeners.forEach((listener) => listener({
+        ready: false,
+        fallback: true,
+        message: error?.message || 'P2P failed. Using server relay.'
+      }));
+      throw error;
+    }
+  }
+
+  async loadIceServers() {
+    if (this.iceServersLoaded) return;
+    this.iceServersLoaded = true;
+    try {
+      const response = await fetch('/api/network-config');
+      if (!response.ok) return;
+      const payload = await response.json();
+      p2p.setIceServers(payload.iceServers);
+    } catch (_error) {
+      // Default STUN config remains active.
+    }
   }
 
   bindP2PEvents() {
@@ -350,6 +385,10 @@ class MultiplayerService {
 
   requiresP2P() {
     return (this.room?.players?.length || 0) > 1;
+  }
+
+  shouldUseP2P() {
+    return this.requiresP2P() && !this.p2pFailed && p2p.isReady();
   }
 
   emitWithAck(event, payload) {

@@ -11,6 +11,7 @@ class P2PService {
     this.connectResolve = null;
     this.connectTimer = null;
     this.useStun = true;
+    this.customIceServers = null;
     this.pendingSignals = [];
     this.maxBufferedAmount = 256 * 1024;
     this.binaryVersion = 1;
@@ -80,6 +81,9 @@ class P2PService {
   }
 
   rtcConfig() {
+    if (Array.isArray(this.customIceServers) && this.customIceServers.length > 0) {
+      return { iceServers: this.customIceServers };
+    }
     if (!this.useStun) return {};
     return {
       iceServers: [
@@ -87,6 +91,10 @@ class P2PService {
         { urls: 'stun:stun1.l.google.com:19302' }
       ]
     };
+  }
+
+  setIceServers(iceServers) {
+    this.customIceServers = Array.isArray(iceServers) ? iceServers.filter((server) => server?.urls) : null;
   }
 
   async startHostPeer(peerId) {

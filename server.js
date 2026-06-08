@@ -31,6 +31,10 @@ app.get('/api/maps', (_req, res) => {
   res.json({ ok: true, maps: readCustomMaps() });
 });
 
+app.get('/api/network-config', (_req, res) => {
+  res.json({ ok: true, iceServers: readIceServers() });
+});
+
 app.post('/api/maps', (req, res) => {
   const map = sanitizeCustomMap(req.body);
   if (!map) return res.status(400).json({ ok: false, message: 'Invalid map.' });
@@ -270,6 +274,12 @@ io.on('connection', (socket) => {
     });
   });
 
+  socket.on('game:restart-level', (payload) => {
+    const room = getSocketRoom(socket);
+    if (!room || !room.started || room.hostId !== socket.id) return;
+    socket.to(room.code).emit('game:restart-level', payload);
+  });
+
   socket.on('disconnect', () => {
     const room = getSocketRoom(socket);
     if (!room) return;
@@ -324,6 +334,30 @@ function cleanupRoomIfGameEmpty(room) {
       rooms.delete(room.code);
     }
   }, 5000);
+}
+
+function readIceServers() {
+  if (process.env.ICE_SERVERS_JSON) {
+    try {
+      const parsed = JSON.parse(process.env.ICE_SERVERS_JSON);
+      if (Array.isArray(parsed)) return parsed.filter((server) => server?.urls);
+    } catch (_error) {
+      // Fall through to explicit TURN/STUN env parsing.
+    }
+  }
+
+  const iceServers = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' }
+  ];
+  if (process.env.TURN_URLS) {
+    iceServers.push({
+      urls: process.env.TURN_URLS.split(',').map((url) => url.trim()).filter(Boolean),
+      username: process.env.TURN_USERNAME || undefined,
+      credential: process.env.TURN_CREDENTIAL || undefined
+    });
+  }
+  return iceServers;
 }
 
 function sanitizeCustomMap(customMap) {

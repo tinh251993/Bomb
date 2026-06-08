@@ -49,7 +49,7 @@ export class LoadingScene extends Phaser.Scene {
     try {
       this.statusText?.setText('Connecting P2P peers...');
       await multiplayer.reportLoadingReady();
-      this.statusText?.setText('P2P ready. Waiting for players...');
+      this.statusText?.setText(multiplayer.p2pFailed ? 'Server relay ready. Waiting for players...' : 'P2P ready. Waiting for players...');
     } catch (error) {
       this.statusText?.setText(error.message);
     }
@@ -66,8 +66,14 @@ export class LoadingScene extends Phaser.Scene {
   renderP2PStatus(status) {
     if (!this.statusText || !status) return;
 
-    const connected = status.peers.filter((peer) => peer.open).length;
-    const total = status.peers.length;
+    if (status.fallback) {
+      this.statusText.setText('P2P failed. Using server relay.');
+      return;
+    }
+
+    const peers = status.peers || [];
+    const connected = peers.filter((peer) => peer.open).length;
+    const total = peers.length;
     this.statusText.setText(status.ready
       ? `P2P ready ${connected}/${total}`
       : `Connecting P2P ${connected}/${total}`);
