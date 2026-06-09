@@ -14,6 +14,7 @@ class MultiplayerService {
     this.remoteWorldStateListeners = new Set();
     this.reviveListeners = new Set();
     this.killEnemiesListeners = new Set();
+    this.itemCollectListeners = new Set();
     this.restartListeners = new Set();
     this.latencyListeners = new Set();
     this.latencyMs = null;
@@ -58,6 +59,15 @@ class MultiplayerService {
     });
     this.socket.on('game:kill-enemies-request', (payload) => {
       this.killEnemiesListeners.forEach((listener) => listener(payload));
+    });
+    this.socket.on('game:item-collect-request', (payload) => {
+      this.itemCollectListeners.forEach((listener) => listener(payload));
+    });
+    this.socket.on('game:restart-level', (payload) => {
+      this.restartListeners.forEach((listener) => listener(payload));
+    });
+    this.socket.on('game:cheat-state', (payload) => {
+      this.restartListeners.forEach((listener) => listener({ ...payload, mode: 'cheat' }));
     });
     this.socket.on('p2p:signal', (payload) => {
       p2p.handleSignal(payload).catch(() => {});
@@ -179,6 +189,15 @@ class MultiplayerService {
     this.socket.emit('game:kill-enemies');
   }
 
+  requestItemCollect(item) {
+    if (!this.socket?.connected || !this.room?.started || !item) return;
+    if (this.shouldUseP2P()) {
+      this.sendP2P('game:item-collect', item);
+      return;
+    }
+    this.socket.emit('game:item-collect', item);
+  }
+
   sendRestartLevel(payload) {
     if (!this.socket?.connected || !this.room?.started || !this.isHost()) return;
     if (this.shouldUseP2P()) {
@@ -186,6 +205,15 @@ class MultiplayerService {
       return;
     }
     this.socket.emit('game:restart-level', payload);
+  }
+
+  sendCheatState(payload) {
+    if (!this.socket?.connected || !this.room?.started || !this.isHost()) return;
+    if (this.shouldUseP2P()) {
+      this.sendP2P('game:cheat-state', payload);
+      return;
+    }
+    this.socket.emit('game:cheat-state', payload);
   }
 
   onRoomUpdate(listener) {
@@ -234,6 +262,11 @@ class MultiplayerService {
   onKillEnemiesRequest(listener) {
     this.killEnemiesListeners.add(listener);
     return () => this.killEnemiesListeners.delete(listener);
+  }
+
+  onItemCollectRequest(listener) {
+    this.itemCollectListeners.add(listener);
+    return () => this.itemCollectListeners.delete(listener);
   }
 
   onRestartLevel(listener) {
@@ -353,8 +386,20 @@ class MultiplayerService {
         this.killEnemiesListeners.forEach((listener) => listener(payload));
         return;
       }
+      if (event === 'game:item-collect') {
+        this.handleP2PItemCollectRequest(fromPlayerId, payload);
+        return;
+      }
+      if (event === 'game:item-collect-request') {
+        this.itemCollectListeners.forEach((listener) => listener(payload));
+        return;
+      }
       if (event === 'game:restart-level') {
         this.restartListeners.forEach((listener) => listener(payload));
+        return;
+      }
+      if (event === 'game:cheat-state') {
+        this.restartListeners.forEach((listener) => listener({ ...payload, mode: 'cheat' }));
       }
     });
 
@@ -371,6 +416,11 @@ class MultiplayerService {
   handleP2PKillEnemiesRequest(fromPlayerId) {
     if (!this.isHost()) return;
     this.killEnemiesListeners.forEach((listener) => listener({ fromPlayerId }));
+  }
+
+  handleP2PItemCollectRequest(fromPlayerId, payload) {
+    if (!this.isHost()) return;
+    this.itemCollectListeners.forEach((listener) => listener({ fromPlayerId, item: payload }));
   }
 
   sendP2P(event, payload) {

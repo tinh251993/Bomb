@@ -18,6 +18,10 @@ const config = {
   roundPixels: true,
   transparent: false,
   disableVisibilityChange: true,
+  fps: {
+    target: 40,
+    forceSetTimeOut: true
+  },
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,

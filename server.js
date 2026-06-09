@@ -274,10 +274,25 @@ io.on('connection', (socket) => {
     });
   });
 
+  socket.on('game:item-collect', (item) => {
+    const room = getSocketRoom(socket);
+    if (!room || !room.started) return;
+    io.to(room.hostId).emit('game:item-collect-request', {
+      fromPlayerId: socket.id,
+      item
+    });
+  });
+
   socket.on('game:restart-level', (payload) => {
     const room = getSocketRoom(socket);
     if (!room || !room.started || room.hostId !== socket.id) return;
     socket.to(room.code).emit('game:restart-level', payload);
+  });
+
+  socket.on('game:cheat-state', (payload) => {
+    const room = getSocketRoom(socket);
+    if (!room || !room.started || room.hostId !== socket.id) return;
+    socket.to(room.code).emit('game:cheat-state', payload);
   });
 
   socket.on('disconnect', () => {
