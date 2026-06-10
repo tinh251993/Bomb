@@ -2,6 +2,9 @@ import { BossTypes, Characters, COLS, HEIGHT, HUD, ROWS, TILE, TileType, WIDTH }
 import { createBombSheetTextures } from '../core/BombTextureFactory.js';
 import { GridMath } from '../core/GridMath.js';
 
+const REMOTE_PLAYER_RENDER_DELAY_MS = 70;
+const REMOTE_PLAYER_MAX_SAMPLES = 10;
+
 export class GameView {
   constructor(scene, model) {
     this.scene = scene;
@@ -9,6 +12,7 @@ export class GameView {
     this.remoteSprites = new Map();
     this.remoteStates = new Map();
     this.remoteStateSeqs = new Map();
+    this.remoteSampleBuffers = new Map();
     this.networkTargets = new Map();
     this.localStatusText = null;
     this.bossHealthBg = null;
@@ -584,7 +588,77 @@ export class GameView {
       sprite.setTint(0x93c5fd);
       sprite.setAlpha(0.56);
     }
-    this.setNetworkTarget(sprite, state.x, state.y, `remote:${playerId}`, () => this.updateSpriteDepth(sprite));
+    this.networkTargets.delete(`remote:${playerId}`);
+    this.pushRemotePlayerSample(playerId, state);
+  }
+
+  pushRemotePlayerSample(playerId, state) {
+    let samples = this.remoteSampleBuffers.get(playerId);
+    if (!samples) {
+      samples = [];
+      this.remoteSampleBuffers.set(playerId, samples);
+    }
+
+    const sample = {
+      x: state.x,
+      y: state.y,
+      direction: state.direction || 'down',
+      status: state.status || 'alive',
+      time: performance.now()
+    };
+
+    samples.push(sample);
+    if (samples.length > REMOTE_PLAYER_MAX_SAMPLES) {
+      samples.splice(0, samples.length - REMOTE_PLAYER_MAX_SAMPLES);
+    }
+
+    const sprite = this.remoteSprites.get(playerId);
+    if (sprite && samples.length === 1) {
+      sprite.setPosition(sample.x, sample.y);
+      this.updateSpriteDepth(sprite);
+    }
+  }
+
+  updateRemotePlayerSprites() {
+    const renderTime = performance.now() - REMOTE_PLAYER_RENDER_DELAY_MS;
+
+    for (const [playerId, sprite] of this.remoteSprites.entries()) {
+      if (!sprite?.active) {
+        this.remoteSampleBuffers.delete(playerId);
+        this.remoteSprites.delete(playerId);
+        continue;
+      }
+
+      const samples = this.remoteSampleBuffers.get(playerId);
+      if (!samples?.length || !sprite.visible) continue;
+
+      while (samples.length >= 3 && samples[1].time <= renderTime) {
+        samples.shift();
+      }
+
+      let target = samples[samples.length - 1];
+      if (samples.length >= 2 && samples[0].time <= renderTime && renderTime <= samples[1].time) {
+        const start = samples[0];
+        const end = samples[1];
+        const duration = Math.max(1, end.time - start.time);
+        const alpha = Phaser.Math.Clamp((renderTime - start.time) / duration, 0, 1);
+        target = {
+          x: Phaser.Math.Linear(start.x, end.x, alpha),
+          y: Phaser.Math.Linear(start.y, end.y, alpha)
+        };
+      }
+
+      const distance = Phaser.Math.Distance.Between(sprite.x, sprite.y, target.x, target.y);
+      if (distance > TILE * 2.4) {
+        sprite.setPosition(target.x, target.y);
+      } else {
+        sprite.setPosition(
+          Phaser.Math.Linear(sprite.x, target.x, 0.65),
+          Phaser.Math.Linear(sprite.y, target.y, 0.65)
+        );
+      }
+      this.updateSpriteDepth(sprite);
+    }
   }
 
   setNetworkTarget(sprite, x, y, key, onUpdate) {
@@ -607,6 +681,7 @@ export class GameView {
   }
 
   updateNetworkSprites(dt) {
+    this.updateRemotePlayerSprites();
     const follow = Math.min(1, dt * 20);
     this.networkTargets.forEach((target, key) => {
       const sprite = target.sprite;
